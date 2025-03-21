@@ -2,7 +2,7 @@
 """
 
 
-from pyproj import Geod
+from pyproj import Geod, CRS
 import geopandas as gpd
 import pandas as pd
 import shapely
