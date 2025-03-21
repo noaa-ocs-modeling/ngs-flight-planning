@@ -172,4 +172,5 @@ cython_debug/
 
 # Custom for this repo
 STOFS-2D-Global_COOPS.ipynb 
-
+data/input_file_examples
+data/output_file_examples
