@@ -53,3 +53,5 @@ def point_table_from_lines(df_lines: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     
     df_points = gpd.GeoDataFrame(pd.concat(df_list, ignore_index=True))
     return df_points
+
+

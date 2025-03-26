@@ -19,7 +19,6 @@ thalassa version has 57946 nodes.
 import mesh_handling
 import datetime
 import geopandas as gpd
-import timeit
 
 
 flightpath_filename = 'data/AL2401L-wpt.shp'
