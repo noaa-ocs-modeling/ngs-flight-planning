@@ -8,7 +8,6 @@ import datetime
 import xarray
 import pandas
 import scipy
-import xarray_subset_grid
 import s3fs
 import thalassa
 import math
@@ -51,37 +50,6 @@ def load_forecast_ds(init_datetime: datetime.datetime,
         
     # Subset to box. 
     subset_ds = thalassa.crop(thalassa.normalize(ds), bbox).load()
-    return subset_ds
-
-
-def load_forecast_ds_xsg(init_datetime: datetime.datetime, 
-                         bbox: shapely.box,
-                         convert_to_local_msl: bool = True) -> xarray.Dataset:
-    """Subset and load a mesh file for a lat-lon box, using xarray-subset-grid.
-    
-    Can be slow (~15 minutes).
-    """
-    # Load global dataset.
-    yyyymmdd = init_datetime.strftime('%Y%m%d')
-    hh = init_datetime.strftime('%H')
-    aws_bucket = 'noaa-gestofs-pds'
-    subdir = f'stofs_2d_glo.{yyyymmdd}'
-    filename = f'stofs_2d_glo.t{hh}z.fields.cwl.nc'
-    s3 = s3fs.S3FileSystem(anon=True)  # Enable anonymous access to the S3 bucket
-    url = f's3://{aws_bucket}/{subdir}/{filename}'
-    ds = xarray.open_dataset(s3.open(url, 'rb'), drop_variables=['nvel'])
-    ds = xarray_subset_grid.grids.ugrid.assign_ugrid_topology(ds, face_node_connectivity="element")
-
-    # Optionally convert to local mean sea level.
-    if convert_to_local_msl:
-        lmsl_filename = 'noaa-nos-stofs2d-pds/_archive/msl_2017-2019_avg/GSTOFSv5.6.5_msl_2017-2019_avg_20241619.nc'
-        ds_lmsl = xarray.open_dataset(
-            s3.open(f's3://{lmsl_filename}', 'rb')
-        )
-        ds['zeta'] = ds['zeta'] - ds_lmsl['mean_sea_level']
-
-    # Subset to box. 
-    subset_ds = ds.xsg.subset_polygon(shapely.get_coordinates(bbox)).load()
     return subset_ds
 
 
