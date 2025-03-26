@@ -1,4 +1,4 @@
-"""Contains functions for handling STOFS forecast mesh files.
+"""Functions for handling STOFS forecast mesh files.
 """
 
 
@@ -7,10 +7,12 @@ import geopandas as gpd
 import datetime
 import xarray
 import pandas
+import numpy
 import scipy
 import s3fs
 import thalassa
 import math
+from coastalmodeling_vdatum import vdatum
 
 
 def get_box(geometries: gpd.GeoDataFrame, 
@@ -39,6 +41,9 @@ def load_forecast_ds(init_datetime: datetime.datetime,
     s3 = s3fs.S3FileSystem(anon=True)  # Enable anonymous access to the S3 bucket
     url = f's3://{aws_bucket}/{subdir}/{filename}'
     ds = xarray.open_dataset(s3.open(url, 'rb'), drop_variables=['nvel'])
+        
+    # Subset to box. 
+    subset_ds = thalassa.crop(thalassa.normalize(ds), bbox).load()
 
     # Optionally convert to local mean sea level.
     if convert_to_local_msl:
@@ -46,27 +51,10 @@ def load_forecast_ds(init_datetime: datetime.datetime,
         ds_lmsl = xarray.open_dataset(
             s3.open(f's3://{lmsl_filename}', 'rb')
         )
-        ds['zeta'] = ds['zeta'] - ds_lmsl['mean_sea_level']
+        subset_ds_lmsl = thalassa.crop(thalassa.normalize(ds_lmsl), bbox).load()
+        subset_ds['zeta'] = subset_ds['zeta'] - subset_ds_lmsl['mean_sea_level']
         
-    # Subset to box. 
-    subset_ds = thalassa.crop(thalassa.normalize(ds), bbox).load()
     return subset_ds
-
-
-def drop_nan_nodes(ds: xarray.Dataset, 
-                   drop_var: str, 
-                   max_nan_fraction: float = 0.0) -> xarray.Dataset:
-    """Drop nodes from dataset where NaN values occur. 
-
-    Should probably just replace this with:
-        ds.dropna('node', how='any', subset=[drop_var])
-    """
-    # Convert max_nan_fraction to minimum count of non-NaN values.
-    min_non_nan_count = min(
-        math.ceil((1.0 - max_nan_fraction) * len(ds.time)),
-        len(ds.time)
-    )
-    return ds.dropna('node', thresh=min_non_nan_count, subset=[drop_var])
 
 
 def get_nearest_inds_dists(
@@ -97,7 +85,53 @@ def get_nearest_inds_dists(
     # Make sure that outputs are 2-dimensional (station, k), 
     # even if some dimensions are length 1.
     if n_nearest == 1:
-        dists  = np.expand_dims(dists, axis=1)
-        inds  = np.expand_dims(inds, axis=1)
+        dists  = numpy.expand_dims(dists, axis=1)
+        inds  = numpy.expand_dims(inds, axis=1)
     return xarray.DataArray(inds, dims=["station", "k"]), \
         xarray.DataArray(dists, dims=["station", "k"])
+
+
+def ds_add_datum(ds: xarray.Dataset,
+                 target_datum: str,
+                 base_datum: str = 'lmsl',
+                 incl_time_axis: bool = False,
+                 ds_y_name: str = 'lat',
+                 ds_x_name: str = 'lon') -> xarray.Dataset:
+    """Adds datum field to a STOFS dataset, relative to base_datum. 
+    """
+    # Array of zeros to represent base datum.
+    z_dummy = numpy.zeros_like(ds[ds_y_name].data)
+    
+    # Convert to target (positive means below base).
+    x, y, z_new = vdatum.convert(base_datum.lower(), target_datumlower(), 
+                                 ds[ds_y_name].data, ds[ds_x_name].data, z_dummy,
+                                 online=True, epoch=None)
+    
+    # Deal with missing values and convert to height instead of depth.
+    z_ll = -1.0 * numpy.where(~numpy.isinf(z_new), z_new, numpy.nan)
+    
+    # Add to copy of dataset.
+    ds_out = ds.copy()
+    new_var_name = '_'.join([base_datum, 'minus', target_datum])
+    if incl_time_axis:
+        ds_out[new_var_name] = xarray.DataArray(
+            numpy.tile(z_ll, (len(ds.time), 1)),
+            dims=['time', 'node']
+        )
+        return ds_out
+    else:
+        ds_out[new_var_name] = xarray.DataArray(z_ll, dims=['node'])
+        return ds_out
+
+
+def ds_add_tidal_range(ds: xarray.Dataset,
+                       incl_time_axis: bool = False,
+                       ds_y_name: str = 'lat',
+                       ds_x_name: str = 'lon') -> xarray.Dataset:
+    """Adds tidal mean range field to a STOFS dataset.
+    """
+    ds_out = ds_add_datum(ds, 'MLW', incl_time_axis, ds_y_name, ds_x_name)
+    ds_out = ds_add_datum(ds_out, 'MHW', incl_time_axis, ds_y_name, ds_x_name)
+    ds_out['mean_range'] = ds_out['MHW_minus_LMSL'] - ds_out['MLW_minus_LMSL']
+    return ds_out
+    

@@ -1,4 +1,4 @@
-"""
+"""Functions to process data on NGS flight lines and image points.
 """
 
 
@@ -54,4 +54,25 @@ def point_table_from_lines(df_lines: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     df_points = gpd.GeoDataFrame(pd.concat(df_list, ignore_index=True))
     return df_points
 
+
+def interp_time(ds: xarray.Dataset, 
+                timestep_seconds: int = 60) -> xarray.Dataset:
+    """
+    """
+    pass
+
+
+def calc_sun_alt(ds: xarray.Dataset,
+                 time_var: str = 'time', 
+                 x_var: str = 'lon', 
+                 y_var: str = 'lat') -> xarray.Dataset:
+    """
+    """
+    pass
+
+
+def windows_from_bool(ds: xarray.Dataset) -> xarray.Dataset:
+    """
+    """
+    pass
 
