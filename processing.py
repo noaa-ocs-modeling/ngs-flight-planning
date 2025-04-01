@@ -4,9 +4,13 @@
 
 from pyproj import Geod, CRS
 import geopandas as gpd
-import pandas as pd
+import pandas
+import xarray
 import shapely
+import numpy
+import pvlib
 import sys
+import math
 from utils import hdms_to_dd
 
 
@@ -51,7 +55,7 @@ def point_table_from_lines(df_lines: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         )
         df_list.append(df_int)
     
-    df_points = gpd.GeoDataFrame(pd.concat(df_list, ignore_index=True))
+    df_points = gpd.GeoDataFrame(pandas.concat(df_list, ignore_index=True))
     return df_points
 
 
@@ -59,20 +63,106 @@ def interp_time(ds: xarray.Dataset,
                 timestep_seconds: int = 60) -> xarray.Dataset:
     """
     """
-    pass
+    time_interp = numpy.arange(ds.time.min().data, 
+                               ds.time.max().data 
+                               + numpy.timedelta64(1, 's'), 
+                               numpy.timedelta64(timestep_seconds, 's'), 
+                               dtype='datetime64[ns]')
+    return ds.interp(time=time_interp, method='linear')
 
 
-def calc_sun_alt(ds: xarray.Dataset,
+def calc_sun_alt(df: pandas.DataFrame,
                  time_var: str = 'time', 
                  x_var: str = 'lon', 
                  y_var: str = 'lat') -> xarray.Dataset:
+    """Add solar elevation (aka altitude) to a dataframe.
+
+    Assumes df has a multiindex with levels ['station', 'time'],
+    and has lat and lon columns (with optional custom names).
     """
-    """
-    pass
+    df_out = df.reset_index()
+    solpos = pvlib.solarposition.get_solarposition(
+        time=df_out[time_var], 
+        latitude=df_out[y_var], 
+        longitude=df_out[x_var]
+    )
+    df_out['solar_elevation'] = solpos['elevation'].to_numpy()
+    return df_out.set_index(['station', 'time'])
 
 
-def windows_from_bool(ds: xarray.Dataset) -> xarray.Dataset:
+def calc_in_range(
+    df: pandas.DataFrame,
+    datums: list,
+    base_datum: str = 'lmsl',
+    z_var: str = 'zeta',
+    min_solar_elevation: float = 25.0
+) -> pandas.DataFrame:
     """
+    """
+    df_out = df.copy()
+    for dat in datums:
+        dat_var = '_'.join([dat, 'minus', base_datum])
+        df_out[dat + '_in_range'] = (
+            (df_out[z_var] >= df_out[dat_var] - df_out['tolerance']) 
+            & 
+            (df_out[z_var] <= df_out[dat_var] + df_out['tolerance'])
+            &
+            (df_out['solar_elevation'] >= min_solar_elevation)
+        )
+    return df_out
+
+
+def windows_from_bool(df: pandas.DataFrame,
+                      datums: list) -> pandas.DataFrame:
+    """
+    """
+    result = pandas.DataFrame()
+    
+    # Calculate windows separately for each datum.
+    for dat in datums:
+        
+        # Work out which timesteps have a different "in_range" value
+        # to the previous or following timestep: these represent 
+        # window starts and ends.
+        diff_back = df.groupby('station')[dat + '_in_range'].diff()
+        diff_fwd = -1.0 * df.groupby('station')[dat + '_in_range'].diff(periods=-1)
+        diff_back[[math.isnan(d) for d in diff_back]] = \
+            df.loc[[math.isnan(d) for d in diff_back], dat + '_in_range']
+        diff_fwd[[math.isnan(d) for d in diff_fwd]] = \
+            df.loc[[math.isnan(d) for d in diff_fwd], dat + '_in_range']
+        diff_back = diff_back.astype('int')
+        diff_fwd = diff_fwd.astype('int')
+        
+        # Construct data frame of windows for this datum.
+        df_window_starts = df[diff_back == 1].reset_index()[
+            ['station', 'lat', 'lon', 'time']
+        ].rename(columns={'time':'start_time'})
+        df_window_starts['datum'] = dat
+        df_window_ends = df[diff_fwd == -1].reset_index()[
+            ['station', 'lat', 'lon', 'time']
+        ].rename(columns={'time':'end_time'})
+        if not (df_window_starts.station == df_window_ends.station).all():
+            print('warning: windows_from_bool: mismatching stations in window starts and ends.')
+        
+        # Join this data with other datums' results.
+        result = pandas.concat(
+            [result, df_window_starts.join(df_window_ends['end_time'])],
+            axis=0,
+            join='outer', 
+            ignore_index=True,
+            sort=False
+        )
+    #
+    return result
+
+
+def window_overlaps(ds: xarray.Dataset, point_step: int = 1) -> xarray.Dataset:
+    """Calculates the overlap of multiple windows.
+
+    point_step dictates which windows to use in the overlap:
+        0: just the first and last
+        1: every point
+        N (not equal to 0 or 1): use every Nth point.
     """
     pass
 

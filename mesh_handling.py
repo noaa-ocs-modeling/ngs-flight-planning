@@ -14,7 +14,6 @@ import thalassa
 import math
 from coastalmodeling_vdatum import vdatum
 
-
 def get_box(geometries: gpd.GeoDataFrame, 
             buffer: float = 0.1) -> shapely.box:
     """Get a buffered box around geometries in a geopandas data frame.
@@ -43,7 +42,7 @@ def load_forecast_ds(init_datetime: datetime.datetime,
     ds = xarray.open_dataset(s3.open(url, 'rb'), drop_variables=['nvel'])
         
     # Subset to box. 
-    subset_ds = thalassa.crop(thalassa.normalize(ds), bbox).load()
+    subset_ds = thalassa.crop(thalassa.normalize(ds), bbox)  #.load()
 
     # Optionally convert to local mean sea level.
     if convert_to_local_msl:
@@ -51,7 +50,7 @@ def load_forecast_ds(init_datetime: datetime.datetime,
         ds_lmsl = xarray.open_dataset(
             s3.open(f's3://{lmsl_filename}', 'rb')
         )
-        subset_ds_lmsl = thalassa.crop(thalassa.normalize(ds_lmsl), bbox).load()
+        subset_ds_lmsl = thalassa.crop(thalassa.normalize(ds_lmsl), bbox)  #.load()
         subset_ds['zeta'] = subset_ds['zeta'] - subset_ds_lmsl['mean_sea_level']
         
     return subset_ds
@@ -103,16 +102,17 @@ def ds_add_datum(ds: xarray.Dataset,
     z_dummy = numpy.zeros_like(ds[ds_y_name].data)
     
     # Convert to target (positive means below base).
-    x, y, z_new = vdatum.convert(base_datum.lower(), target_datumlower(), 
+    x, y, z_new = vdatum.convert(base_datum.lower(), target_datum.lower(), 
                                  ds[ds_y_name].data, ds[ds_x_name].data, z_dummy,
                                  online=True, epoch=None)
     
     # Deal with missing values and convert to height instead of depth.
+    # This makes MHW (> LMSL) positive and MLLW (< LMSL) negative.
     z_ll = -1.0 * numpy.where(~numpy.isinf(z_new), z_new, numpy.nan)
     
     # Add to copy of dataset.
     ds_out = ds.copy()
-    new_var_name = '_'.join([base_datum, 'minus', target_datum])
+    new_var_name = '_'.join([target_datum, 'minus', base_datum])
     if incl_time_axis:
         ds_out[new_var_name] = xarray.DataArray(
             numpy.tile(z_ll, (len(ds.time), 1)),
@@ -130,8 +130,30 @@ def ds_add_tidal_range(ds: xarray.Dataset,
                        ds_x_name: str = 'lon') -> xarray.Dataset:
     """Adds tidal mean range field to a STOFS dataset.
     """
-    ds_out = ds_add_datum(ds, 'MLW', incl_time_axis, ds_y_name, ds_x_name)
-    ds_out = ds_add_datum(ds_out, 'MHW', incl_time_axis, ds_y_name, ds_x_name)
-    ds_out['mean_range'] = ds_out['MHW_minus_LMSL'] - ds_out['MLW_minus_LMSL']
+    ds_out = ds.copy()
+    if 'mlw_minus_lmsl' not in ds.data_vars:
+        ds_out = ds_add_datum(ds, 'mlw', incl_time_axis=incl_time_axis, 
+                              ds_y_name=ds_y_name, ds_x_name=ds_x_name)
+    if 'mhw_minus_lmsl' not in ds.data_vars:
+        ds_out = ds_add_datum(ds_out, 'mhw', incl_time_axis=incl_time_axis, 
+                              ds_y_name=ds_y_name, ds_x_name=ds_x_name)
+    ds_out['mean_range'] = ds_out['mhw_minus_lmsl'] - ds_out['mlw_minus_lmsl']
     return ds_out
+
+
+def tidal_tol_from_range(ds: xarray.Dataset,
+                         range_var: str = 'mean_range') -> xarray.Dataset:
+    """
+    """
+    if range_var not in ds.data_vars:
+        sys.exit('tidal_tol_from_range: range variable (default: mean_range) required to calculate tolerances.')
+    # Tolerance calculation from memorandum of November 24, 2014. 
+    ft_to_meters = 0.3048
+    tol_thresh = 5.0 * ft_to_meters
+    tol_fraction = 0.1
+    tol_minimum = 0.5 * ft_to_meters
+    tol = (tol_fraction * ds[range_var]).where(ds[range_var] > tol_thresh,
+                                               other=tol_minimum, 
+                                               drop=False)
+    return ds.assign(tolerance=tol)
     
