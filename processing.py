@@ -112,8 +112,8 @@ def calc_in_range(
     return df_out
 
 
-def windows_from_bool(df: pandas.DataFrame,
-                      datums: list) -> pandas.DataFrame:
+def point_windows_from_bool(df: pandas.DataFrame,
+                            datums: list) -> pandas.DataFrame:
     """
     """
     result = pandas.DataFrame()
@@ -124,12 +124,19 @@ def windows_from_bool(df: pandas.DataFrame,
         # Work out which timesteps have a different "in_range" value
         # to the previous or following timestep: these represent 
         # window starts and ends.
-        diff_back = df.groupby('station')[dat + '_in_range'].diff()
-        diff_fwd = -1.0 * df.groupby('station')[dat + '_in_range'].diff(periods=-1)
+        diff_back = df[dat + '_in_range'].astype('int')\
+                    .groupby('station').diff()
+        diff_fwd = df[dat + '_in_range'].astype('int')\
+                   .groupby('station').diff(periods=-1)
+        # Populate any NaNs (first or last timestep) with the in_range value
+        # for that timestep.
         diff_back[[math.isnan(d) for d in diff_back]] = \
-            df.loc[[math.isnan(d) for d in diff_back], dat + '_in_range']
+            df.loc[[math.isnan(d) for d in diff_back], dat + '_in_range']\
+              .astype('int')
         diff_fwd[[math.isnan(d) for d in diff_fwd]] = \
-            df.loc[[math.isnan(d) for d in diff_fwd], dat + '_in_range']
+            df.loc[[math.isnan(d) for d in diff_fwd], dat + '_in_range']\
+              .astype('int')
+        # Convert float types to integers.
         diff_back = diff_back.astype('int')
         diff_fwd = diff_fwd.astype('int')
         
@@ -138,7 +145,9 @@ def windows_from_bool(df: pandas.DataFrame,
             ['station', 'lat', 'lon', 'time']
         ].rename(columns={'time':'start_time'})
         df_window_starts['datum'] = dat
-        df_window_ends = df[diff_fwd == -1].reset_index()[
+        df_window_starts = df_window_starts[['station', 'lat', 'lon', 
+                                             'datum', 'start_time']]
+        df_window_ends = df[diff_fwd == 1].reset_index()[
             ['station', 'lat', 'lon', 'time']
         ].rename(columns={'time':'end_time'})
         if not (df_window_starts.station == df_window_ends.station).all():
@@ -156,13 +165,78 @@ def windows_from_bool(df: pandas.DataFrame,
     return result
 
 
-def window_overlaps(ds: xarray.Dataset, point_step: int = 1) -> xarray.Dataset:
-    """Calculates the overlap of multiple windows.
-
-    point_step dictates which windows to use in the overlap:
-        0: just the first and last
-        1: every point
-        N (not equal to 0 or 1): use every Nth point.
+def line_windows_from_bool(df: pandas.DataFrame, 
+                           df_points: pandas.DataFrame,
+                           datums:list, 
+                           point_step: int = 1) -> pandas.DataFrame:
     """
-    pass
+    """
+    result = pandas.DataFrame()
+    
+    # There might be a way to do this with groupby('line') calls, but keeping it 
+    # simple (and slow?) for now. 
+    for line in pandas.unique(df_points.LINE):
+        # Get the list of points on this line.
+        all_points_on_line = sorted(list(
+            df_points.reset_index().loc[df_points.LINE == line, 'index']
+        ))
+        # Subset this list to which we actually want to check 
+        # for window overlaps.
+        if point_step == 0:
+            check_points_on_line = [
+                all_points_on_line[0],
+                all_points_on_line[1]
+            ]
+        else:
+            check_points_on_line = all_points_on_line[::point_step]
+            
+        for dat in datums:
+            check_col = dat + '_in_range'
+            
+            # Calculate which timesteps are in range for all 
+            # required stations on this line.
+            df_line = df.loc[check_points_on_line].reset_index()\
+                        .pivot(index='time', columns='station', values=check_col)\
+                        .all(axis='columns', bool_only=True)
+            # Work out which timesteps have a different "in_range" value
+            # to the previous or following timestep: these represent 
+            # window starts and ends.
+            diff_back = df_line.astype('int').diff()
+            diff_fwd = df_line.astype('int').diff(periods=-1)
+            # Populate any NaNs (first or last timestep) with the in_range value
+            # for that timestep.
+            diff_back[[math.isnan(d) for d in diff_back]] = \
+                df_line.loc[[math.isnan(d) for d in diff_back]].astype('int')
+            diff_fwd[[math.isnan(d) for d in diff_fwd]] = \
+                df_line.loc[[math.isnan(d) for d in diff_fwd]].astype('int')
+            # Convert float types to integers.
+            diff_back = diff_back.astype('int')
+            diff_fwd = diff_fwd.astype('int')
+            # Construct data frame of windows for this datum.
+            df_window_starts = df_line[diff_back == 1].reset_index()\
+                               .rename(columns={'time':'start_time'})
+            df_window_starts['line'] = line
+            df_window_starts['datum'] = dat
+            df_window_ends = df_line[diff_fwd == 1].reset_index()\
+                             .rename(columns={'time':'end_time'})
+            
+            # Join this data with other datums' results.
+            result = pandas.concat(
+                [result, 
+                 df_window_starts[['line', 'datum', 'start_time']]\
+                 .join(df_window_ends['end_time'])],
+                axis=0,
+                join='outer', 
+                ignore_index=True,
+                sort=False
+            )
+            
+    return result
+
+
+                    
+                
+                
+            
+            
 

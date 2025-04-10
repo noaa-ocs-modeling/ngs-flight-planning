@@ -6,8 +6,8 @@ import datetime
 import shapely
 import pvlib
 #
-from inputs import load_lines_gdf
-from processing import point_table_from_lines
+import inputs 
+import processing  
 import mesh_handling
 
 # Define inputs.
@@ -16,8 +16,8 @@ init_datetime = datetime.datetime(2024,12,15,0,0)
 datums = ['mllw', 'mhw']
 
 # Read flight paths and calculate image points. 
-df_lines = load_lines_gdf(lines_txt)
-df_points = point_table_from_lines(df_lines)
+df_lines = inputs.load_lines_gdf(lines_txt)
+df_points = processing.point_table_from_lines(df_lines)
 
 # Load and subset forecast and datum data.
 bbox = mesh_handling.get_box(df_lines)
@@ -50,6 +50,7 @@ ds_points_model_timeseries = mesh_handling.tidal_tol_from_range(
 )
 
 # Process station timeseries.
+print('Interpolating along time axis...')
 ds_interp = processing.interp_time(ds_points_model_timeseries)
 
 # Convert to pandas data frame.
@@ -57,23 +58,27 @@ df_interp = ds_interp[[v for v in ds_interp.data_vars if 'station' in ds_interp[
             .to_dataframe(dim_order=['station', 'time'])
 
 # Get sun angle for each row of data frame.
+print('Calculating solar elevation angles...')
 df_interp = processing.calc_sun_alt(df_interp)
 
 # Test whether in tidal range and sun angle conditions
-#    ds_in_range = (() & () & () ...) too specific for function
-for dat in datums:
-    df_interp[dat + '_in_range'] = (
-        (df_interp['zeta'] >= df_interp[dat + '_minus_lmsl'] - df_interp['tolerance']) 
-        & 
-        (df_interp['zeta'] <= df_interp[dat + '_minus_lmsl'] + df_interp['tolerance'])
-        &
-        (df_interp['solar_elevation'] >= 25.0)
-    )
+print('Calculating times when water level in range...')
+df_interp = processing.calc_in_range(df_interp, datums)
 
-# Aggregate boolean to windows
-#    windows_from_bool(...)
+# Aggregate boolean to windows by point.
+print('Calculating windows by point...')
+df_point_windows = processing.point_windows_from_bool(df_interp, datums)
 
-# Overlap point-windows within each line. 
+# Add line column and reorder.
+df_point_windows = df_point_windows.join(df_points.LINE, on='station')\
+                                   .rename(columns={'LINE':'line'})
+df_point_windows = df_point_windows[['station', 'lat', 'lon', 'line', 'datum',
+                                     'start_time', 'end_time']]
+
+# Overlap point-windows within each line.
+# Done by calculating windows from boolean time series.
+print('Calculating windows by line...')
+df_line_windows = processing.line_windows_from_bool(df_interp, df_points, datums)
 
 # Outputs
 
