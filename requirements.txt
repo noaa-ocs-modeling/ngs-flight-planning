@@ -132,6 +132,7 @@ propcache==0.2.1
 psutil==6.1.1
 ptyprocess==0.7.0
 pure_eval==0.2.3
+pvlib==0.12.0
 pyarrow==19.0.0
 pycparser==2.22
 pyct==0.5.0
@@ -156,9 +157,6 @@ rfc3986-validator==0.1.1
 rpds-py==0.22.3
 s3fs==2024.12.0
 scipy==1.15.1
-sealens @ git+https://github.com/oceanmodeling/sealens.git
-searvey==0.3.14
-seastats @ git+https://github.com/oceanmodeling/seastats.git
 Send2Trash==1.8.3
 setuptools==75.8.0
 shapely==2.0.6
@@ -192,6 +190,7 @@ webencodings==0.5.1
 websocket-client==1.8.0
 wrapt==1.17.2
 xarray==2025.1.1
+xarray_subset_grid @ git+https://github.com/asascience-open/xarray-subset-grid.git
 xyzservices==2025.1.0
 yarl==1.18.3
 zarr==3.0.1

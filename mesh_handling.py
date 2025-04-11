@@ -10,9 +10,10 @@ import pandas
 import numpy
 import scipy
 import s3fs
-import thalassa
+import xarray_subset_grid
 import math
 from coastalmodeling_vdatum import vdatum
+from timer import SimpleTimer
 
 def get_box(geometries: gpd.GeoDataFrame, 
             buffer: float = 0.1) -> shapely.box:
@@ -27,10 +28,12 @@ def get_box(geometries: gpd.GeoDataFrame,
 def load_forecast_ds(init_datetime: datetime.datetime, 
                      bbox: shapely.box,
                      convert_to_local_msl: bool = True) -> xarray.Dataset:
-    """Subset and load a mesh file for a lat-lon box, using thalassa.
-
+    """Subset and load a mesh file for a lat-lon box, using xarray-subset-grid.
+    
     Can be slow (~15 minutes).
     """
+    tmr = SimpleTimer()
+    
     # Load global dataset.
     yyyymmdd = init_datetime.strftime('%Y%m%d')
     hh = init_datetime.strftime('%H')
@@ -39,21 +42,44 @@ def load_forecast_ds(init_datetime: datetime.datetime,
     filename = f'stofs_2d_glo.t{hh}z.fields.cwl.nc'
     s3 = s3fs.S3FileSystem(anon=True)  # Enable anonymous access to the S3 bucket
     url = f's3://{aws_bucket}/{subdir}/{filename}'
+    print('Opening data file...')
     ds = xarray.open_dataset(s3.open(url, 'rb'), drop_variables=['nvel'])
-        
+    tmr.update_print()
+    print('Assigning grid topology...')
+    ds = xarray_subset_grid.grids.ugrid.assign_ugrid_topology(ds)
+    tmr.update_print()
+
     # Subset to box. 
-    subset_ds = thalassa.crop(thalassa.normalize(ds), bbox)  #.load()
+    print('Subsetting...')
+    subset_ds = ds.xsg.subset_polygon(shapely.get_coordinates(bbox))
+    tmr.update_print()
+    print('Loading dataset...')
+    subset_ds.load()
+    tmr.update_print()
 
     # Optionally convert to local mean sea level.
     if convert_to_local_msl:
         lmsl_filename = 'noaa-nos-stofs2d-pds/_archive/msl_2017-2019_avg/GSTOFSv5.6.5_msl_2017-2019_avg_20241619.nc'
+        print('Opening LMSL dataset...')
         ds_lmsl = xarray.open_dataset(
             s3.open(f's3://{lmsl_filename}', 'rb')
         )
-        subset_ds_lmsl = thalassa.crop(thalassa.normalize(ds_lmsl), bbox)  #.load()
+        tmr.update_print()
+        print('Assigning grid topology...')
+        ds_lmsl = xarray_subset_grid.grids.ugrid.assign_ugrid_topology(ds_lmsl)
+        tmr.update_print()
+        print('Subsetting LMSL data...')
+        subset_ds_lmsl = ds_lmsl.xsg.subset_polygon(shapely.get_coordinates(bbox))
+        tmr.update_print()
+        print('Loading LMSL data...')
+        subset_ds_lmsl.load()
+        tmr.update_print()
+        print('Subtracting LMSL...')
         subset_ds['zeta'] = subset_ds['zeta'] - subset_ds_lmsl['mean_sea_level']
-        
-    return subset_ds
+        tmr.update_print()
+
+    print('Renaming x and y coordinates to match thalassa.')
+    return subset_ds.rename({'x':'lon', 'y':'lat'})
 
 
 def get_nearest_inds_dists(
