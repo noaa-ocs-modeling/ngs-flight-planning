@@ -78,7 +78,8 @@ timer.update_print()
 # Convert to pandas data frame.
 print('Converting to pandas data frame...')
 df_interp = ds_interp[[v for v in ds_interp.data_vars if 'station' in ds_interp[v].dims]]\
-            .to_dataframe(dim_order=['station', 'time'])
+            .to_dataframe(dim_order=['station', 'time'])\
+            .rename(columns={'lat':'node_lat', 'lon':'node_lon'})
 timer.update_print()
 
 # Get sun angle for each row of data frame.

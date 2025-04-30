@@ -50,6 +50,7 @@ def point_table_from_lines(df_lines: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
             {**{col:df_lines.loc[ll,col] for col in keep_cols},
              'LAT':int_points.lats,
              'LON':int_points.lons,
+             'POINT_NUM':list(range(1, 1 + df_lines.loc[ll,'PHOTOS'])),
              'geometry':[shapely.Point([lon, lat]) for lon,lat in 
                          zip(int_points.lons, int_points.lats) ]}
         )
@@ -71,10 +72,12 @@ def interp_time(ds: xarray.Dataset,
     return ds.interp(time=time_interp, method='linear')
 
 
-def calc_sun_alt(df: pandas.DataFrame,
-                 time_var: str = 'time', 
-                 x_var: str = 'lon', 
-                 y_var: str = 'lat') -> xarray.Dataset:
+def calc_sun_alt(
+    df: pandas.DataFrame,
+    time_var: str = 'time', 
+    x_var: str = 'node_lon', 
+    y_var: str = 'node_lat'
+) -> xarray.Dataset:
     """Add solar elevation (aka altitude) to a dataframe.
 
     Assumes df has a multiindex with levels ['station', 'time'],
@@ -112,8 +115,12 @@ def calc_in_range(
     return df_out
 
 
-def point_windows_from_bool(df: pandas.DataFrame,
-                            datums: list) -> pandas.DataFrame:
+def point_windows_from_bool(
+    df: pandas.DataFrame,
+    datums: list, 
+    x_var: str = 'node_lon', 
+    y_var: str = 'node_lat'
+) -> pandas.DataFrame:
     """
     """
     result = pandas.DataFrame()
@@ -142,13 +149,13 @@ def point_windows_from_bool(df: pandas.DataFrame,
         
         # Construct data frame of windows for this datum.
         df_window_starts = df[diff_back == 1].reset_index()[
-            ['station', 'lat', 'lon', 'time']
+            ['station', y_var, x_var, 'time']
         ].rename(columns={'time':'start_time'})
         df_window_starts['datum'] = dat
-        df_window_starts = df_window_starts[['station', 'lat', 'lon', 
+        df_window_starts = df_window_starts[['station', y_var, x_var, 
                                              'datum', 'start_time']]
         df_window_ends = df[diff_fwd == 1].reset_index()[
-            ['station', 'lat', 'lon', 'time']
+            ['station', y_var, x_var, 'time']
         ].rename(columns={'time':'end_time'})
         if not (df_window_starts.station == df_window_ends.station).all():
             print('warning: windows_from_bool: mismatching stations in window starts and ends.')
