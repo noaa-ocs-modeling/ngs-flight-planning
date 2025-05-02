@@ -13,6 +13,7 @@ from timer import SimpleTimer
 
 # Define inputs.
 lines_txt = 'data/AL2401.wpt'
+project_name = 'AL2401_test'
 init_datetime = datetime.datetime(2024,12,15,0,0)
 datums = ['mllw', 'mhw']
 
@@ -99,7 +100,8 @@ df_point_windows = processing.point_windows_from_bool(df_interp, datums)
 # Add line column and reorder.
 df_point_windows = df_point_windows.join(df_points.LINE, on='station')\
                                    .rename(columns={'LINE':'line'})
-df_point_windows = df_point_windows[['station', 'lat', 'lon', 'line', 'datum',
+df_point_windows = df_point_windows[['station', 'node_lat', 'node_lon', 
+                                     'line', 'datum',
                                      'start_time', 'end_time']]
 timer.update_print()
 
@@ -110,4 +112,6 @@ df_line_windows = processing.line_windows_from_bool(df_interp, df_points, datums
 timer.update_print()
 
 # Outputs
+print('Writing outputs...')
+outputs.output_all_prediction(df_lines, df_line_windows, df_points, df_point_windows, project_name, datums, init_datetime)
 
