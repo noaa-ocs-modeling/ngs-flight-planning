@@ -9,12 +9,16 @@ import pvlib
 import inputs 
 import processing  
 import mesh_handling
+import outputs
 from timer import SimpleTimer
+
+#import logging
+#logging.basicConfig(format='%(asctime)s %(name)-15s %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
 # Define inputs.
 lines_txt = 'data/AL2401.wpt'
 project_name = 'AL2401_test'
-init_datetime = datetime.datetime(2024,12,15,0,0)
+init_datetime = datetime.datetime(2025,1,5,0,0)
 datums = ['mllw', 'mhw']
 
 timer = SimpleTimer()

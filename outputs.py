@@ -405,7 +405,8 @@ def line_text_prediction(
     # Loop over all lines (includes those without any windows).
     for ln in df_lines['LINE']:
         # Write flight line header.
-        outfile.write(f'Line #{ln} with {str(df_lines.loc[df_lines.LINE == ln, 'PHOTOS'].values[0])} positions\n')
+        outfile.write(f"Line #{ln} with {str(df_lines.loc[df_lines.LINE==ln, 'PHOTOS'].values[0])} positions" + 
+                      '\n')
         # Write columns headers.
         outfile.write('Date'.ljust(date_width) + 
                       ''.join([f'**{datum.upper()}**'.ljust(window_width) 
