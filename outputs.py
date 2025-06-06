@@ -1,4 +1,16 @@
-"""
+"""Functions for writing NGS flight planning output files.
+
+Functions
+---------
+output_all_prediction
+geopackage_prediction
+lines_shapefile_prediction
+lines_geojson_prediction
+points_shapefile_prediction
+points_geojson_prediction
+line_text_prediction
+date_text_prediction
+
 """
 
 
@@ -7,6 +19,7 @@ import pandas as pd
 import numpy as np
 import shapely
 import datetime
+import pathlib
 from typing import List
 import sys
 
@@ -18,16 +31,17 @@ def output_all_prediction(
     df_point_windows: pd.DataFrame,
     project_name: str,
     datum_list: List[str],
-    init_datetime: datetime.datetime
+    init_datetime: datetime.datetime,
+    outdir: str | pathlib.Path
 ) -> None:
     """Write all outputs for time window predictions."""
-    geopackage_prediction(df_lines, df_line_windows, df_points, df_point_windows, project_name, datum_list, init_datetime)
-    lines_shapefile_prediction(df_lines, df_line_windows, project_name, datum_list, init_datetime)
-    lines_geojson_prediction(df_lines, df_line_windows, project_name, datum_list, init_datetime)
-    points_shapefile_prediction(df_points, df_point_windows, project_name, datum_list, init_datetime)
-    points_geojson_prediction(df_points, df_point_windows, project_name, datum_list, init_datetime)
-    line_text_prediction(df_lines, df_line_windows, project_name, datum_list, init_datetime)
-    date_text_prediction(df_lines, df_line_windows, project_name, datum_list, init_datetime)
+    geopackage_prediction(df_lines, df_line_windows, df_points, df_point_windows, project_name, datum_list, init_datetime,outdir)
+    lines_shapefile_prediction(df_lines, df_line_windows, project_name, datum_list, init_datetime, outdir)
+    lines_geojson_prediction(df_lines, df_line_windows, project_name, datum_list, init_datetime, outdir)
+    points_shapefile_prediction(df_points, df_point_windows, project_name, datum_list, init_datetime, outdir)
+    points_geojson_prediction(df_points, df_point_windows, project_name, datum_list, init_datetime, outdir)
+    line_text_prediction(df_lines, df_line_windows, project_name, datum_list, init_datetime, outdir)
+    date_text_prediction(df_lines, df_line_windows, project_name, datum_list, init_datetime, outdir)
     return None
 
 def geopackage_prediction(
@@ -37,7 +51,8 @@ def geopackage_prediction(
     df_point_windows: pd.DataFrame,
     project_name: str,
     datum_list: List[str],
-    init_datetime: datetime.datetime
+    init_datetime: datetime.datetime,
+    outdir: str | pathlib.Path
 ) -> None:
     """Write geopackage with time window predictions.
 
@@ -113,7 +128,6 @@ def geopackage_prediction(
     
     # Write file.
     datestr = init_datetime.strftime('%Y%m%dT%H')
-    outdir = 'data/output/'
     fileext = '.gpkg'
     filename = '_'.join([project_name, '_'.join(datum_list), datestr])
     gpd.GeoDataFrame(result_l).to_file(outdir + filename + fileext, 
@@ -130,7 +144,8 @@ def lines_shapefile_prediction(
     df_line_windows: pd.DataFrame,
     project_name: str,
     datum_list: List[str],
-    init_datetime: datetime.datetime
+    init_datetime: datetime.datetime,
+    outdir: str | pathlib.Path
 ) -> None:
     """Write shapefile with line-wise time window predictions.
 
@@ -179,7 +194,6 @@ def lines_shapefile_prediction(
     
     # Write file.
     datestr = init_datetime.strftime('%Y%m%dT%H')
-    outdir = 'data/output/'
     fileext = '.lines.shp'
     filename = '_'.join([project_name, '_'.join(datum_list), datestr])
     gpd.GeoDataFrame(result_l).to_file(outdir + filename + fileext)
@@ -191,7 +205,8 @@ def lines_geojson_prediction(
     df_line_windows: pd.DataFrame,
     project_name: str,
     datum_list: List[str],
-    init_datetime: datetime.datetime
+    init_datetime: datetime.datetime,
+    outdir: str | pathlib.Path
 ) -> None:
     """Write geojson with line-wise time window predictions.
 
@@ -232,7 +247,6 @@ def lines_geojson_prediction(
     
     # Write file.
     datestr = init_datetime.strftime('%Y%m%dT%H')
-    outdir = 'data/output/'
     fileext = '.lines.geojson'
     filename = '_'.join([project_name, '_'.join(datum_list), datestr])
     gpd.GeoDataFrame(result_l).to_file(outdir + filename + fileext, 
@@ -245,7 +259,8 @@ def points_shapefile_prediction(
     df_point_windows: pd.DataFrame,
     project_name: str,
     datum_list: List[str],
-    init_datetime: datetime.datetime
+    init_datetime: datetime.datetime,
+    outdir: str | pathlib.Path
 ) -> None:
     """Write shapefile with point-wise time window predictions.
 
@@ -292,7 +307,6 @@ def points_shapefile_prediction(
     
     # Write file.
     datestr = init_datetime.strftime('%Y%m%dT%H')
-    outdir = 'data/output/'
     fileext = '.pts.shp'
     filename = '_'.join([project_name, '_'.join(datum_list), datestr])
     gpd.GeoDataFrame(result_p).to_file(outdir + filename + fileext)
@@ -304,7 +318,8 @@ def points_geojson_prediction(
     df_point_windows: pd.DataFrame,
     project_name: str,
     datum_list: List[str],
-    init_datetime: datetime.datetime
+    init_datetime: datetime.datetime,
+    outdir: str | pathlib.Path
 ) -> None:
     """Write geojson with point-wise time window predictions.
 
@@ -343,7 +358,6 @@ def points_geojson_prediction(
     
     # Write file.
     datestr = init_datetime.strftime('%Y%m%dT%H')
-    outdir = 'data/output/'
     fileext = '.pts.geojson'
     filename = '_'.join([project_name, '_'.join(datum_list), datestr])
     gpd.GeoDataFrame(result_p).to_file(outdir + filename + fileext, 
@@ -356,7 +370,8 @@ def line_text_prediction(
     df_line_windows: pd.DataFrame,
     project_name: str,
     datum_list: List[str],
-    init_datetime: datetime.datetime
+    init_datetime: datetime.datetime,
+    outdir: str | pathlib.Path
 ) -> None:
     """Write a text file with time windows by line then date.
 
@@ -373,7 +388,6 @@ def line_text_prediction(
     """
     # Define filename.
     datestr = init_datetime.strftime('%Y%m%dT%H')
-    outdir = 'data/output/'
     fileext = '.lines.txt'
     filename = '_'.join([project_name, '_'.join(datum_list), datestr])
     outfile = open(outdir + filename + fileext, 'a')
@@ -436,7 +450,8 @@ def date_text_prediction(
     df_line_windows: pd.DataFrame,
     project_name: str,
     datum_list: List[str],
-    init_datetime: datetime.datetime
+    init_datetime: datetime.datetime,
+    outdir: str | pathlib.Path
 ) -> None:
     """Write a text file with time windows by date then line.
 
@@ -452,7 +467,6 @@ def date_text_prediction(
     """
     # Define filename.
     datestr = init_datetime.strftime('%Y%m%dT%H')
-    outdir = 'data/output/'
     fileext = '.dates.txt'
     filename = '_'.join([project_name, '_'.join(datum_list), datestr])
     outfile = open(outdir + filename + fileext, 'a')

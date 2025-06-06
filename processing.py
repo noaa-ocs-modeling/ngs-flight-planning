@@ -1,7 +1,13 @@
 """Functions to process data on NGS flight lines and image points.
+
+Functions
+---------
+point_table_from_lines(df_lines: gpd.GeoDataFrame) -> gpd.GeoDataFrame
+
 """
 
 
+import logging
 from pyproj import Geod, CRS
 import geopandas as gpd
 import pandas
@@ -12,6 +18,9 @@ import pvlib
 import sys
 import math
 from utils import hdms_to_dd
+
+
+logger = logging.getLogger(__name__)
 
 
 def point_table_from_lines(df_lines: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
@@ -158,7 +167,7 @@ def point_windows_from_bool(
             ['station', y_var, x_var, 'time']
         ].rename(columns={'time':'end_time'})
         if not (df_window_starts.station == df_window_ends.station).all():
-            print('warning: windows_from_bool: mismatching stations in window starts and ends.')
+            logger.warning('windows_from_bool: mismatching stations in window starts and ends.')
         
         # Join this data with other datums' results.
         result = pandas.concat(

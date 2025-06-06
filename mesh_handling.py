@@ -1,7 +1,18 @@
 """Functions for handling STOFS forecast mesh files.
+
+Functions
+---------
+get_box
+load_forecast_ds
+get_nearest_inds_dists
+ds_add_datum
+ds_add_tidal_range
+tidal_tol_from_range
+
 """
 
 
+import logging
 import shapely
 import geopandas as gpd
 import datetime
@@ -13,7 +24,11 @@ import s3fs
 import xarray_subset_grid
 import math
 from coastalmodeling_vdatum import vdatum
-from timer import SimpleTimer
+
+
+logger = logging.getLogger(__name__)
+
+
 
 def get_box(geometries: gpd.GeoDataFrame, 
             buffer: float = 0.1) -> shapely.box:
@@ -32,7 +47,6 @@ def load_forecast_ds(init_datetime: datetime.datetime,
     
     Can be slow (~15 minutes).
     """
-    tmr = SimpleTimer()
     
     # Load global dataset.
     yyyymmdd = init_datetime.strftime('%Y%m%d')
@@ -42,43 +56,38 @@ def load_forecast_ds(init_datetime: datetime.datetime,
     filename = f'stofs_2d_glo.t{hh}z.fields.cwl.nc'
     s3 = s3fs.S3FileSystem(anon=True)  # Enable anonymous access to the S3 bucket
     url = f's3://{aws_bucket}/{subdir}/{filename}'
-    print('Opening data file...')
+    logger.info('Opening data file...')
     ds = xarray.open_dataset(s3.open(url, 'rb'), drop_variables=['nvel'])
-    tmr.update_print()
-    print('Assigning grid topology...')
+    logger.info('Finished opening data file.')
+    logger.info('Assigning grid topology...')
     ds = xarray_subset_grid.grids.ugrid.assign_ugrid_topology(ds)
-    tmr.update_print()
+    logger.info('Finished assigning grid topology.')
 
     # Subset to box. 
-    print('Subsetting...')
+    logger.info('Subsetting...')
     subset_ds = ds.xsg.subset_polygon(shapely.get_coordinates(bbox))
-    tmr.update_print()
-    print('Loading dataset...')
+    logger.info('Finished subsetting.')
+    logger.info('Loading dataset...')
     subset_ds.load()
-    tmr.update_print()
+    logger.info('Finished loading dataset.')
 
     # Optionally convert to local mean sea level.
     if convert_to_local_msl:
         lmsl_filename = 'noaa-nos-stofs2d-pds/_archive/msl_2017-2019_avg/GSTOFSv5.6.5_msl_2017-2019_avg_20241619.nc'
-        print('Opening LMSL dataset...')
+        logger.info('Opening LMSL dataset...')
         ds_lmsl = xarray.open_dataset(
             s3.open(f's3://{lmsl_filename}', 'rb')
         )
-        tmr.update_print()
-        print('Assigning grid topology...')
+        logger.info('Assigning grid topology...')
         ds_lmsl = xarray_subset_grid.grids.ugrid.assign_ugrid_topology(ds_lmsl)
-        tmr.update_print()
-        print('Subsetting LMSL data...')
+        logger.info('Subsetting LMSL data...')
         subset_ds_lmsl = ds_lmsl.xsg.subset_polygon(shapely.get_coordinates(bbox))
-        tmr.update_print()
-        print('Loading LMSL data...')
+        logger.info('Loading LMSL data...')
         subset_ds_lmsl.load()
-        tmr.update_print()
-        print('Subtracting LMSL...')
+        logger.info('Subtracting LMSL...')
         subset_ds['zeta'] = subset_ds['zeta'] - subset_ds_lmsl['mean_sea_level']
-        tmr.update_print()
 
-    print('Renaming x and y coordinates to match thalassa.')
+    logger.info('Renaming x and y coordinates to match thalassa.')
     return subset_ds.rename({'x':'lon', 'y':'lat'})
 
 

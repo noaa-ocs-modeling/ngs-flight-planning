@@ -1,4 +1,9 @@
-"""
+"""Functions for reading NGS flight planning input files.
+
+Functions
+---------
+load_lines_gdf(filepath: str) -> gpd.GeoDataFrame
+
 """
 
 
@@ -10,7 +15,20 @@ from utils import hdms_to_dd
 
 
 def load_lines_gdf(filepath: str) -> gpd.GeoDataFrame:
-    """
+    """Read a flight lines file and return data as GeoDataFrame.
+
+    Parameters
+    ----------
+    filepath
+        The full path to the file containing flight lines,
+        usually a "wpt" or waypoint file, which is a form 
+        of human-readable CSV.
+
+    Returns
+    -------
+    Geopandas data frame
+        With one row per flight line.
+        
     """
     df = pd.read_csv(filepath)
     gdf = gpd.GeoDataFrame(
