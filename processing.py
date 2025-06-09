@@ -2,7 +2,12 @@
 
 Functions
 ---------
-point_table_from_lines(df_lines: gpd.GeoDataFrame) -> gpd.GeoDataFrame
+point_table_from_lines
+interp_time
+calc_sun_alt
+calc_in_range
+point_windows_from_bool
+line_windows_from_bool
 
 """
 
@@ -24,7 +29,20 @@ logger = logging.getLogger(__name__)
 
 
 def point_table_from_lines(df_lines: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-    """
+    """Calculate image locations from information about the flight lines.
+    
+    Parameters
+    ----------
+    df_lines
+        GeoDataFrame containing flight line data. 
+        Usually the output from `inputs.load_lines_gdf`.
+
+    Returns
+    -------
+    Geodataframe containing image point data, assuming imaging
+    point count as specified in the input, equally spaced along
+    the flight lines.
+    
     """
     # Specify which columns to keep from the lines table (if they occur).
     keep_cols = [col for col in 
@@ -71,8 +89,7 @@ def point_table_from_lines(df_lines: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
 
 def interp_time(ds: xarray.Dataset, 
                 timestep_seconds: int = 60) -> xarray.Dataset:
-    """
-    """
+    """Interpolate dataset along time axis, with specified output frequency."""
     time_interp = numpy.arange(ds.time.min().data, 
                                ds.time.max().data 
                                + numpy.timedelta64(1, 's'), 
@@ -86,11 +103,29 @@ def calc_sun_alt(
     time_var: str = 'time', 
     x_var: str = 'node_lon', 
     y_var: str = 'node_lat'
-) -> xarray.Dataset:
+) -> pandas.DataFrame:
     """Add solar elevation (aka altitude) to a dataframe.
 
     Assumes df has a multiindex with levels ['station', 'time'],
     and has lat and lon columns (with optional custom names).
+
+    Parameters
+    ----------
+    df
+        Dataframe containing station location and time data.
+    time_var
+        The name of the time variable in df.
+    x_var
+        The name of the x/longitude variable in df.
+    y_var
+        The name of the y/latitude variable in df.
+
+    Returns
+    -------
+    A copy of the input data frame with solar elevation column 
+    added, giving the solar elevation for the unique time and location
+    defined in each row of the input. 
+    
     """
     df_out = df.reset_index()
     solpos = pvlib.solarposition.get_solarposition(
@@ -109,7 +144,31 @@ def calc_in_range(
     z_var: str = 'zeta',
     min_solar_elevation: float = 25.0
 ) -> pandas.DataFrame:
-    """
+    """Calculates whether water level and solar elevation meet requirements.
+
+    Parameters
+    ----------
+    df
+        Input data frame containing water levels, datum information,
+        tolerance, and solar elevation. 
+    datums
+        Specifies which datums to check water levels are in range for.
+    base_datum
+        The datum relative to which the other datums are specified 
+        as differences.
+    z_var
+        The name of the water level variable. 
+    min_solar_elevation
+        The minimum solar elevation, in degrees, for a location-time
+        to be considered in range.
+
+    Returns
+    -------
+    Data frame
+        Copy of input df with one column added per datum in datums, 
+        denoting whether water levels and solar elevation meet 
+        requirements.
+        
     """
     df_out = df.copy()
     for dat in datums:
@@ -130,7 +189,27 @@ def point_windows_from_bool(
     x_var: str = 'node_lon', 
     y_var: str = 'node_lat'
 ) -> pandas.DataFrame:
-    """
+    """Calculates point-wise time windows when conditions are met.
+
+    Parameters
+    ----------
+    df
+        Dataframe containing column(s) (one per datum) defining
+        time steps when imaging conditions (water level, solar elevation)
+        are met.
+    datums
+        List of datums to calculate time windows for.
+    x_var
+        The name of the x/longitude variable in df.
+    y_var
+        The name of the y/latitude variable in df.
+
+    Returns
+    -------
+    Data frame containing start times and end times for time windows
+    when conditions are met for a point, with each row defining a unique 
+    station-datum-window combination.
+    
     """
     result = pandas.DataFrame()
     
@@ -185,7 +264,32 @@ def line_windows_from_bool(df: pandas.DataFrame,
                            df_points: pandas.DataFrame,
                            datums:list, 
                            point_step: int = 1) -> pandas.DataFrame:
-    """
+    """Calculates line-wise time windows when conditions are met.
+
+    Parameters
+    ----------
+    df
+        Dataframe containing column(s) (one per datum) defining
+        time steps when imaging conditions (water level, solar elevation)
+        are met.
+    df_points
+        Dataframe containing geographic data on the image points, 
+        including which line they are on.
+    datums
+        List of datums to calculate time windows for.
+    point_step
+        Specification of which points to include in a line's 
+        window calculation:
+        0 = first and last only;
+        1 = every point;
+        N (integer) = every Nth point.
+
+    Returns
+    -------
+    Data frame containing start times and end times for time windows
+    when conditions are met for every point on a line, with each  
+    row defining a unique line-datum-window combination.
+    
     """
     result = pandas.DataFrame()
     
@@ -201,7 +305,7 @@ def line_windows_from_bool(df: pandas.DataFrame,
         if point_step == 0:
             check_points_on_line = [
                 all_points_on_line[0],
-                all_points_on_line[1]
+                all_points_on_line[-1]
             ]
         else:
             check_points_on_line = all_points_on_line[::point_step]

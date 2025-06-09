@@ -2,7 +2,7 @@
 
 Functions
 ---------
-load_lines_gdf(filepath: str) -> gpd.GeoDataFrame
+load_lines_gdf
 
 """
 

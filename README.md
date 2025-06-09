@@ -1,7 +1,7 @@
 Calculate water levels to support NGS flight planning.
 
 # Installation
-This package has been developed using `python` 3.12, and tested with `python` 3.12 and 3.11. If you don't have one of these, you can use `conda` or `mamba` to set up a `python` 3.12 environemnt with the following steps:
+This package has been developed using `python` 3.12, and tested with `python` 3.12 and 3.11. If you don't have one of these, you can use `conda` or `mamba` to set up a `python` 3.12 environment with the following steps:
 ```
 # Install miniconda if needed:
 wget "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"

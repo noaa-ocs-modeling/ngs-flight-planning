@@ -1,3 +1,15 @@
+"""The main function for flight planning with STOFS forecast water levels.
+
+And also its command line argument parser.
+
+Functions
+---------
+main
+ngs_arg_parser
+
+"""
+
+
 import logging
 import argparse
 import pathlib
@@ -28,16 +40,52 @@ logger = logging.getLogger(__name__)
 
 
 def main(
-    project_name,
-    lines_file,
-    init_datetime,
-    datums,
-    output_dir,
-    min_solar_elevation,
-    output_time_zone,
-    every_nth_point
+    project_name: str,
+    lines_file: str,
+    init_datetime: datetime.datetime,
+    datums: list,
+    output_dir: pathlib.Path | str,
+    min_solar_elevation: float,
+    output_time_zone: str,
+    every_nth_point: int
 ) -> None:
-    """
+    """Run NGS flight planning data processing on STOFS forecast data.
+
+    If successfully executed, this results in a number of output files
+    being written to a subdirectory of output_dir.
+
+    Parameters
+    ----------
+    project_name
+        Name of project, used to define the output directory and filenames.
+    lines_file
+        The path and name of the file defining the flight lines.
+    init_datetime
+        The initialization time and date of the STOFS forecast to use.
+    datums
+        List of the datums to process and output time windows for.
+    output_dir
+        The directory in which to create the output data subdirectory.
+        The final names and locations of output files are:
+        <output_dir>/<project_name>/<project_name>_<datums>_<init_datetime>.<ext>
+        where <ext> represents the file type extension (e.g., txt).
+    min_solar_elevation
+        The minimum solar elevation that is considered to meet requirements
+        for valid imagery to be captured.
+    output_time_zone
+        The time zone of time stamps given in the output files.
+        Not currently implemented.
+    every_nth_point
+        Specification of which image points to use when calculating the time
+        windows for a line.
+        0 = first and last only;
+        1 = every point;
+        N (integer) = every Nth point.
+
+    Returns
+    -------
+    None
+    
     """
     logger.info(f'Processing data for project {project_name}')
     logger.info(f'Flight lines file: {lines_file}')

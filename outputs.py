@@ -34,7 +34,35 @@ def output_all_prediction(
     init_datetime: datetime.datetime,
     outdir: str | pathlib.Path
 ) -> None:
-    """Write all outputs for time window predictions."""
+    """Write all outputs for time window predictions.
+    
+    Parameters
+    ----------
+    df_lines
+        Contains data about the flight lines.
+    df_line_windows
+        Contains data about the calculated time windows for
+        each flight line.
+    df_points
+       Contains data about the imaging points along the flight lines.
+    df_point_windows
+        Contains data about the calculated time windows for
+        each imaging point along the flight lines.
+    project_name
+        The name of the project, used to specify filenames.
+    datum_list
+        The list of datums to include in the output files (and
+        also used in the output filenames).
+    init_datetime
+        The forecast initialization time, used in the output filenames.
+    outdir
+        The directory in which to save output files.
+
+    Returns
+    -------
+    None
+    
+    """
     geopackage_prediction(df_lines, df_line_windows, df_points, df_point_windows, project_name, datum_list, init_datetime,outdir)
     lines_shapefile_prediction(df_lines, df_line_windows, project_name, datum_list, init_datetime, outdir)
     lines_geojson_prediction(df_lines, df_line_windows, project_name, datum_list, init_datetime, outdir)

@@ -33,6 +33,20 @@ logger = logging.getLogger(__name__)
 def get_box(geometries: gpd.GeoDataFrame, 
             buffer: float = 0.1) -> shapely.box:
     """Get a buffered box around geometries in a geopandas data frame.
+
+    Parameters
+    ----------
+    geometries
+        The collection of geometries around which the box will be defined.
+    buffer
+        Additional buffer around the box.
+
+    Returns
+    -------
+    Shapely box
+        A single polygon containing the union of all the geometries in 
+        the input data frame.
+        
     """
     tb = geometries.total_bounds
     bbox = shapely.box(tb[0] - buffer, tb[1] - buffer,
@@ -44,8 +58,24 @@ def load_forecast_ds(init_datetime: datetime.datetime,
                      bbox: shapely.box,
                      convert_to_local_msl: bool = True) -> xarray.Dataset:
     """Subset and load a mesh file for a lat-lon box, using xarray-subset-grid.
+
+    Hardcoded to return a single STOFS-2D-Global forecast run.
     
     Can be slow (~15 minutes).
+
+    Parameters
+    ----------
+    init_datetime
+        The initialization datetime of the forecast to load.
+    bbox
+        The bounding box of the region to load.
+    convert_to_local_msl
+        Whether or not to convert to local mean sea level.
+    
+    Returns
+    -------
+    xarray dataset containing forecast data on original model mesh.
+    
     """
     
     # Load global dataset.
@@ -107,6 +137,31 @@ def get_nearest_inds_dists(
     or
         df_stations.loc[0:0]
     to get the right format.
+
+    Parameters
+    ----------
+    ds_mesh 
+        Contains the forecast data on original mesh.
+    df_stations
+        Contains the stations to locate.
+    n_nearest
+        The number of nearest mesh points to a station to return.
+    ds_x_var 
+        The name of the x/longitude variable in the mesh dataset.
+    ds_y_var
+        The name of the y/latitude variable in the mesh dataset.
+    df_x_var 
+        The name of the x/longitude variable in the station dataframe.
+    df_y_var
+        The name of the y/latitude variable in the station dataframe.
+        
+    Returns
+    -------
+    Tuple of two datasets containing (1) the indices and (2) the distances
+    to the station, of the nearest mesh nodes. Each of these two datasets 
+    is 2D, with having dimensions (station, k), where k denotes the position
+    in the sequence from 0 to (n_nearest - 1) of proximity to the station.
+    
     """
     tree = scipy.spatial.cKDTree(
         numpy.column_stack((ds_mesh[ds_x_var].data,
@@ -132,6 +187,29 @@ def ds_add_datum(ds: xarray.Dataset,
                  ds_y_name: str = 'lat',
                  ds_x_name: str = 'lon') -> xarray.Dataset:
     """Adds datum field to a STOFS dataset, relative to base_datum. 
+
+    Parameters
+    ----------
+    ds
+        The dataset to add a datum field to.
+    target_datum
+        The target datum to add, e.g., mllw.
+    base_datum
+        The datum relative to which target_datum values are expressed.
+    incl_time_axis
+        Whether to include time in the dimensionality of the return value.
+        If True, the datum added will have dimensions (node, time).
+        If False, the datum added will have dimensions (node).
+    ds_y_name
+        The name of the y/latitude variable in the mesh dataset.
+    ds_x_name
+        The name of the x/longitude variable in the mesh dataset.
+    
+    Returns
+    -------
+    A dataset that is the same as input ds, with an added field 
+    representing the field target_datum=0 relative to base_datum.
+    
     """
     # Array of zeros to represent base datum.
     z_dummy = numpy.zeros_like(ds[ds_y_name].data)
@@ -164,6 +242,25 @@ def ds_add_tidal_range(ds: xarray.Dataset,
                        ds_y_name: str = 'lat',
                        ds_x_name: str = 'lon') -> xarray.Dataset:
     """Adds tidal mean range field to a STOFS dataset.
+
+    Parameters
+    ----------
+    ds
+        The dataset to add a datum field to.
+    incl_time_axis
+        Whether to include time in the dimensionality of the return value.
+        If True, the datum added will have dimensions (node, time).
+        If False, the datum added will have dimensions (node).
+    ds_y_name
+        The name of the y/latitude variable in the mesh dataset.
+    ds_x_name
+        The name of the x/longitude variable in the mesh dataset.
+    
+    Returns
+    -------
+    A dataset that is the same as input ds, with an added field 
+    ("mean_range") representing tidal range, i.e., (MHW - MLW).
+    
     """
     ds_out = ds.copy()
     if 'mlw_minus_lmsl' not in ds.data_vars:
@@ -178,7 +275,27 @@ def ds_add_tidal_range(ds: xarray.Dataset,
 
 def tidal_tol_from_range(ds: xarray.Dataset,
                          range_var: str = 'mean_range') -> xarray.Dataset:
-    """
+    """Calculate tolerance of water level for a given tidal range. 
+
+    Tolerance is defined as the maximum allowable difference between water  
+    level at the time of imaging and the datum level being surveyed. 
+    
+    The tolerance is calculated according to the 2014 NGS Memo.
+
+    Parameters
+    ----------
+    ds
+        Dataset containing at least a variable representing mean 
+        tidal range.
+    range_var
+        The name of the variable in ds representing mean tidal range.
+    
+    Returns
+    -------
+    A dataset that is the same as input ds, with an added field 
+    ("tolerance") representing the water level tolerance for each 
+    location in the dataset. 
+    
     """
     if range_var not in ds.data_vars:
         sys.exit('tidal_tol_from_range: range variable (default: mean_range) required to calculate tolerances.')
