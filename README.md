@@ -54,5 +54,13 @@ An example command might look like:
 ```
 python main.py AL2401 data/AL2401.wpt 2025-01-01T12:00 -o data/testing -l DEBUG
 ```
+If this executes successfully, the following output files should be saved in `./data/testing/AL2401/`:
+```
+AL2401_mllw_mhw_20250101T12.dates.txt      AL2401_mllw_mhw_20250101T12.lines.shp  AL2401_mllw_mhw_20250101T12.pts.geojson
+AL2401_mllw_mhw_20250101T12.gpkg           AL2401_mllw_mhw_20250101T12.lines.shx  AL2401_mllw_mhw_20250101T12.pts.shp
+AL2401_mllw_mhw_20250101T12.lines.cpg      AL2401_mllw_mhw_20250101T12.lines.txt  AL2401_mllw_mhw_20250101T12.pts.shx
+AL2401_mllw_mhw_20250101T12.lines.dbf      AL2401_mllw_mhw_20250101T12.pts.cpg
+AL2401_mllw_mhw_20250101T12.lines.geojson  AL2401_mllw_mhw_20250101T12.pts.dbf
+```
 
 ## QC (not yet implemented)
