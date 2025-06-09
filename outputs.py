@@ -130,10 +130,12 @@ def geopackage_prediction(
     datestr = init_datetime.strftime('%Y%m%dT%H')
     fileext = '.gpkg'
     filename = '_'.join([project_name, '_'.join(datum_list), datestr])
-    gpd.GeoDataFrame(result_l).to_file(outdir + filename + fileext, 
+    gpd.GeoDataFrame(result_l).to_file(pathlib.Path(outdir) / 
+                                       (filename + fileext), 
                                        layer='flightlines', 
                                        driver='GPKG')
-    gpd.GeoDataFrame(result_p).to_file(outdir + filename + fileext, 
+    gpd.GeoDataFrame(result_p).to_file(pathlib.Path(outdir) / 
+                                       (filename + fileext), 
                                        layer='flightpoints', 
                                        driver='GPKG')
     return None
@@ -196,7 +198,8 @@ def lines_shapefile_prediction(
     datestr = init_datetime.strftime('%Y%m%dT%H')
     fileext = '.lines.shp'
     filename = '_'.join([project_name, '_'.join(datum_list), datestr])
-    gpd.GeoDataFrame(result_l).to_file(outdir + filename + fileext)
+    gpd.GeoDataFrame(result_l).to_file(pathlib.Path(outdir) / 
+                                       (filename + fileext))
     return None
 
 
@@ -249,7 +252,8 @@ def lines_geojson_prediction(
     datestr = init_datetime.strftime('%Y%m%dT%H')
     fileext = '.lines.geojson'
     filename = '_'.join([project_name, '_'.join(datum_list), datestr])
-    gpd.GeoDataFrame(result_l).to_file(outdir + filename + fileext, 
+    gpd.GeoDataFrame(result_l).to_file(pathlib.Path(outdir) / 
+                                       (filename + fileext), 
                                        driver='GeoJSON')
     return None
 
@@ -309,7 +313,8 @@ def points_shapefile_prediction(
     datestr = init_datetime.strftime('%Y%m%dT%H')
     fileext = '.pts.shp'
     filename = '_'.join([project_name, '_'.join(datum_list), datestr])
-    gpd.GeoDataFrame(result_p).to_file(outdir + filename + fileext)
+    gpd.GeoDataFrame(result_p).to_file(pathlib.Path(outdir) / 
+                                       (filename + fileext))
     return None
 
 
@@ -360,7 +365,8 @@ def points_geojson_prediction(
     datestr = init_datetime.strftime('%Y%m%dT%H')
     fileext = '.pts.geojson'
     filename = '_'.join([project_name, '_'.join(datum_list), datestr])
-    gpd.GeoDataFrame(result_p).to_file(outdir + filename + fileext, 
+    gpd.GeoDataFrame(result_p).to_file(pathlib.Path(outdir) / 
+                                       (filename + fileext), 
                                        driver='GeoJSON')
     return None
 
@@ -390,7 +396,7 @@ def line_text_prediction(
     datestr = init_datetime.strftime('%Y%m%dT%H')
     fileext = '.lines.txt'
     filename = '_'.join([project_name, '_'.join(datum_list), datestr])
-    outfile = open(outdir + filename + fileext, 'a')
+    outfile = open(pathlib.Path(outdir) / (filename + fileext), 'a')
     
     # Format datetimes as needed.
     df = df_line_windows.copy()
@@ -469,7 +475,7 @@ def date_text_prediction(
     datestr = init_datetime.strftime('%Y%m%dT%H')
     fileext = '.dates.txt'
     filename = '_'.join([project_name, '_'.join(datum_list), datestr])
-    outfile = open(outdir + filename + fileext, 'a')
+    outfile = open(pathlib.Path(outdir) / (filename + fileext), 'a')
     
     # Format datetimes as needed.
     df = df_line_windows.copy()
