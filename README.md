@@ -44,9 +44,9 @@ Eventually, the aim is to use the package for long-term (months ahead) flight pl
 ## Flight planning
 Run the script `main.py`, with three required command line arguments:
 ```
-python main.py project_name path_to_flight_lines.wpt STOFS_forecast_initialization
+python main.py <project_name> <path_to_flight_lines>.wpt <STOFS_forecast_initialization>
 ```
-More detailed descriptions of these arguments, as well as a number of additional, optional command line arguments, can be accessed by running
+replacing the parts in angle brackets `<...>` with actual values. More detailed descriptions of these arguments, as well as a number of additional, optional command line arguments, can be accessed by running
 ```
 python main.py -h
 ```
