@@ -18,6 +18,7 @@ import pandas as pd
 import numpy as np
 import xarray as xr
 import datetime
+import pytz
 import shapely
 import pvlib
 #
@@ -91,8 +92,10 @@ def main(
     logger.info(f'Flight lines file: {lines_file}')
     logger.info(f"Forecast data used from {init_datetime.strftime('%Y-%m-%d %HUTC')} model run")
     logger.info(f"Datums requested: {', '.join(datums)}")
-    if output_time_zone != 'UTC':
-        logger.warning('Output time zone functionality not yet implemented: defaulting to UTC.')
+    if output_time_zone not in pytz.all_timezones:
+        logger.warning('Specified output_time_zone not available in pytz: defaulting to UTC.')
+        output_time_zone = 'UTC'
+    logger.info(f'Output timezone: {output_time_zone}')
 
     # Create output directory, if needed.
     default_save_dir = pathlib.Path(output_dir) / project_name
@@ -186,6 +189,9 @@ def main(
     df_interp = ds_interp[[v for v in ds_interp.data_vars if 'station' in ds_interp[v].dims]]\
                 .to_dataframe(dim_order=['station', 'time'])\
                 .rename(columns={'lat':'node_lat', 'lon':'node_lon'})
+    # Times so far are in UTC: add this explicitly.
+    import pdb; pdb.set_trace()
+    df_interp = df_interp.tz_localize('UTC', level='time')
     
     logger.info('Calculating solar elevation angles...')
     df_interp = processing.calc_sun_alt(df_interp)
@@ -214,12 +220,25 @@ def main(
         df_interp, df_points, datums, point_step=every_nth_point
     )
     logger.info('Finished calculating windows by line.')
+
+    logger.info(f'Converting times to {output_time_zone}...')
+    logger.debug('Before conversion:')
+    logger.debug(df_line_windows)
+    logger.debug(df_point_windows)
+    df_line_windows.start_time = df_line_windows.start_time.dt.tz_convert(output_time_zone)
+    df_line_windows.end_time = df_line_windows.end_time.dt.tz_convert(output_time_zone)
+    df_point_windows.start_time = df_point_windows.start_time.dt.tz_convert(output_time_zone)
+    df_point_windows.end_time = df_point_windows.end_time.dt.tz_convert(output_time_zone)
+    logger.debug('After conversion:')
+    logger.debug(df_line_windows)
+    logger.debug(df_point_windows)
     
     logger.info('Writing outputs...')
     outputs.output_all_prediction(df_lines, df_line_windows, 
                                   df_points, df_point_windows, 
                                   project_name, datums, init_datetime,
                                   save_dir)
+    return df_point_windows, df_line_windows
 
 
 def ngs_arg_parser():
@@ -242,7 +261,7 @@ def ngs_arg_parser():
                         help="Minimum solar elevation required for imaging time selection (default: %(default)s)")
     parser.add_argument('-z', '--output_time_zone', type=str, 
                         default='UTC',
-                        help="The timezone to convert output times to (default: %(default)s)")
+                        help="The timezone to convert output times to, e.g., 'UTC', 'US/Eastern', 'US/Alaska'. This must be one of the timezones available in `pytz`. See https://en.wikipedia.org/wiki/List_of_tz_database_time_zones for more options. (default: %(default)s)")
     parser.add_argument('-n', '--every_nth_point', type=int, 
                         default=1,
                         help="The number of points to use when calculating a line's time window (default: %(default)s). '0' means only use the end points. '1' means use every point. Integer N means use every Nth point.")
@@ -258,7 +277,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     logger.setLevel(level=args.logging_level)
     # Run the main script.
-    main(
+    df_point_windows, df_line_windows = main(
         args.project,
         pathlib.Path(args.flight_line_filepath).resolve(),
         datetime.datetime.fromisoformat(args.forecast_init_datetime),
