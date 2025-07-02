@@ -22,6 +22,10 @@ import datetime
 import pathlib
 from typing import List
 import sys
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 def output_all_prediction(
@@ -193,6 +197,7 @@ def lines_shapefile_prediction(
         lat2 (df_lines)
         long2 (df_lines)
         geometry (df_lines)
+        timezone (df_line_windows)
     """
     # Construct lines layer data frame.
     result_l = df_line_windows.join(df_lines.set_index('LINE'), 
@@ -203,8 +208,10 @@ def lines_shapefile_prediction(
                            /datetime.timedelta(minutes=1)
     result_l['start_date'] = result_l['start_time'].dt.strftime('%Y-%m-%d')
     result_l['start_hms'] = result_l['start_time'].dt.strftime('%H:%M:%S')
+    result_l['start_tz'] = result_l['start_time'].apply(lambda t: t.tzinfo)
     result_l['end_date'] = result_l['end_time'].dt.strftime('%Y-%m-%d')
     result_l['end_hms'] = result_l['end_time'].dt.strftime('%H:%M:%S')
+    result_l['end_tz'] = result_l['end_time'].apply(lambda t: t.tzinfo)
     line_cols = {
         'project':'project',
         'line':'line_name',
@@ -220,6 +227,8 @@ def lines_shapefile_prediction(
         'LON2':'long2',
         'geometry':'geometry'
     }
+    if (result_l['start_tz'] == result_l['end_tz']).all():
+        line_cols['start_tz'] = 'timezone'
     result_l = result_l[list(line_cols.keys())].rename(columns=line_cols)
     
     # Write file.
@@ -309,6 +318,7 @@ def points_shapefile_prediction(
         end (df_point_windows)
         duration (calculate)
         geometry (df_points)
+        timezone (df_point_windows)
     """
     # Construct points layer data frame.
     result_p = df_point_windows.join(df_points, on='station', 
@@ -319,8 +329,10 @@ def points_shapefile_prediction(
                            /datetime.timedelta(minutes=1)
     result_p['start_date'] = result_p['start_time'].dt.strftime('%Y-%m-%d')
     result_p['start_hms'] = result_p['start_time'].dt.strftime('%H:%M:%S')
+    result_p['start_tz'] = result_p['start_time'].apply(lambda t: t.tzinfo)
     result_p['end_date'] = result_p['end_time'].dt.strftime('%Y-%m-%d')
     result_p['end_hms'] = result_p['end_time'].dt.strftime('%H:%M:%S')
+    result_p['end_tz'] = result_p['end_time'].apply(lambda t: t.tzinfo)
     point_cols = {
         'project':'project', 
         'line':'line_name',
@@ -335,6 +347,8 @@ def points_shapefile_prediction(
         'duration':'duration',
         'geometry':'geometry'
     }
+    if (result_p['start_tz'] == result_p['end_tz']).all():
+        point_cols['start_tz'] = 'timezone'
     result_p = result_p[list(point_cols.keys())].rename(columns=point_cols)
     
     # Write file.
@@ -426,6 +440,15 @@ def line_text_prediction(
     filename = '_'.join([project_name, '_'.join(datum_list), datestr])
     outfile = open(pathlib.Path(outdir) / (filename + fileext), 'a')
     
+    # Get time zone info.
+    sttzi = df_line_windows.start_time.apply(lambda t: t.tzinfo)
+    ettzi = df_line_windows.end_time.apply(lambda t: t.tzinfo)
+    if (sttzi == sttzi[0]).all() & (ettzi == ettzi[0]).all() & (sttzi[0] == ettzi[0]):
+        tz_str = f"All times {sttzi[0]} ({sttzi[0].__repr__()})"
+        outfile.write(tz_str + '\n')
+    else:
+        logger.error('Multiple timezones found in df_line_windows.')
+    
     # Format datetimes as needed.
     df = df_line_windows.copy()
     df['date'] = df['start_time'].dt.date
@@ -504,6 +527,15 @@ def date_text_prediction(
     fileext = '.dates.txt'
     filename = '_'.join([project_name, '_'.join(datum_list), datestr])
     outfile = open(pathlib.Path(outdir) / (filename + fileext), 'a')
+    
+    # Get time zone info.
+    sttzi = df_line_windows.start_time.apply(lambda t: t.tzinfo)
+    ettzi = df_line_windows.end_time.apply(lambda t: t.tzinfo)
+    if (sttzi == sttzi[0]).all() & (ettzi == ettzi[0]).all() & (sttzi[0] == ettzi[0]):
+        tz_str = f"All times {sttzi[0]} ({sttzi[0].__repr__()})"
+        outfile.write(tz_str + '\n')
+    else:
+        logger.error('Multiple timezones found in df_line_windows.')
     
     # Format datetimes as needed.
     df = df_line_windows.copy()

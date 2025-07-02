@@ -190,7 +190,6 @@ def main(
                 .to_dataframe(dim_order=['station', 'time'])\
                 .rename(columns={'lat':'node_lat', 'lon':'node_lon'})
     # Times so far are in UTC: add this explicitly.
-    import pdb; pdb.set_trace()
     df_interp = df_interp.tz_localize('UTC', level='time')
     
     logger.info('Calculating solar elevation angles...')
@@ -221,7 +220,8 @@ def main(
     )
     logger.info('Finished calculating windows by line.')
 
-    logger.info(f'Converting times to {output_time_zone}...')
+    logger.warning(f'Converting times to {output_time_zone}...')
+    logger.warning('ATTENTION: Take care when using time information in GIS software. Geopackage (.gpkg) files may contain timezone information, but shapefiles (.shp) do not.')
     logger.debug('Before conversion:')
     logger.debug(df_line_windows)
     logger.debug(df_point_windows)

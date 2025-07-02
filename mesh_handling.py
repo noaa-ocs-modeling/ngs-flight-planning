@@ -98,6 +98,7 @@ def load_forecast_ds(init_datetime: datetime.datetime,
     subset_ds = ds.xsg.subset_polygon(shapely.get_coordinates(bbox))
     logger.info('Finished subsetting.')
     logger.info('Loading dataset...')
+    logger.info('(This may take some time)')
     subset_ds.load()
     logger.info('Finished loading dataset.')
 
