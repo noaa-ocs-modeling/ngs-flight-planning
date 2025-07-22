@@ -127,6 +127,7 @@ def calc_sun_alt(
     defined in each row of the input. 
     
     """
+    #index_orig = df.index.names
     df_out = df.reset_index()
     solpos = pvlib.solarposition.get_solarposition(
         time=df_out[time_var], 
@@ -134,6 +135,7 @@ def calc_sun_alt(
         longitude=df_out[x_var]
     )
     df_out['solar_elevation'] = solpos['elevation'].to_numpy()
+    # return df_out.set_index(index_orig)
     return df_out.set_index(['station', 'time'])
 
 
