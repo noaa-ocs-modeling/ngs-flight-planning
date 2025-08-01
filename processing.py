@@ -174,14 +174,22 @@ def calc_in_range(
     """
     df_out = df.copy()
     for dat in datums:
-        dat_var = '_'.join([dat, 'minus', base_datum])
-        df_out[dat + '_in_range'] = (
-            (df_out[z_var] >= df_out[dat_var] - df_out['tolerance']) 
-            & 
-            (df_out[z_var] <= df_out[dat_var] + df_out['tolerance'])
-            &
-            (df_out['solar_elevation'] >= min_solar_elevation)
-        )
+        if dat == 'bmhw':
+            dat_var = 'mhw_minus_' + base_datum
+            df_out[dat + '_in_range'] = (
+                (df_out[z_var] <= df_out[dat_var])
+                &
+                (df_out['solar_elevation'] >= min_solar_elevation)
+            )
+        else:
+            dat_var = '_'.join([dat, 'minus', base_datum])
+            df_out[dat + '_in_range'] = (
+                (df_out[z_var] >= df_out[dat_var] - df_out['tolerance']) 
+                & 
+                (df_out[z_var] <= df_out[dat_var] + df_out['tolerance'])
+                &
+                (df_out['solar_elevation'] >= min_solar_elevation)
+            )
     return df_out
 
 
