@@ -587,4 +587,180 @@ def date_text_prediction(
             
     outfile.close()    
     return None
+
+
+def csv_qc(
+    df_images: gpd.GeoDataFrame | pd.DataFrame,
+    project_name: str,
+    datum_list: List[str],
+    init_datetime: datetime.datetime,
+    outdir: str | pathlib.Path
+) -> None:
+    """Write a CSV with QC results for each image.
+
+    Contains columns:
+        ImageId
+        <datum>
+        <datum>_pass
+            for all <datum> in datum_list
+        Tolerance
+        Roll
+        FlightId [blank]
+        FrameId [unknown hard coded constant]
+        TideStage [blank]
+        date
+        time
+        lat
+        long
+        
+    """
+    # Create a new DataFrame to hold the transformed data
+    output_df = pd.DataFrame()
     
+    # Add existing data.
+    # The dictionary maps new column names (key) to old column names (value)
+    column_mapping = {
+        'ImageId': 'ImageId',
+        'Tolerance': 'tolerance',
+        'Roll': 'Roll',
+        'lat': 'Latitude',
+        'long': 'Longitude'
+    }
+    for datum in datum_list:
+        column_mapping[datum.upper()] = datum.lower() + '_minus_lmsl'
+        column_mapping[datum.upper() + '_pass'] = datum.lower() + '_in_range'
+    for new_col, old_col in column_mapping.items():
+        if old_col in df_images.columns:
+            output_df[new_col] = df_images[old_col]
+        else:
+            logger.warning(f"Warning: Column '{old_col}' not found in the input DataFrame.")
+            output_df[new_col] = None # Or some other default value
+    
+    # Create new data.
+    # FlightID and TideStage seem to be empty. 
+    # FrameId appears to be a constant "MM010193".
+    output_df['FlightId'] = None
+    output_df['TideStage'] = None
+    output_df['FrameId'] = 'MM010193'
+    
+    # Extract date and time from datetime index.
+    output_df['date'] = df_images.reset_index()['datetime'].dt.strftime('%Y/%m/%d').values
+    output_df['time'] = df_images.reset_index()['datetime'].dt.strftime('%H:%M:%S').values
+    
+    # Ensure columns are in the correct final order
+    final_columns_order = ['ImageId']
+    for datum in datum_list:
+        final_columns_order.append(datum.upper())
+        final_columns_order.append(datum.upper() + '_pass')
+    final_columns_order = final_columns_order + \
+    [
+        'Tolerance', 'Roll', 'FlightId', 
+        'FrameId', 'TideStage', 'date', 'time', 'lat', 'long'
+    ]
+    output_df = output_df[final_columns_order]
+    
+    # Save the final DataFrame to CSV
+    # Define filename.
+    datestr = init_datetime.strftime('%Y%m%dT%H')
+    fileext = '.csv'
+    filename = '_'.join([project_name, '_'.join(datum_list), datestr, 'qc'])
+    outfile = open(pathlib.Path(outdir) / (filename + fileext), 'w')
+    output_df.to_csv(outfile, index=False)
+    
+    return None
+
+
+def html_qc(
+    df_images: gpd.GeoDataFrame | pd.DataFrame,
+    project_name: str,
+    datum_list: List[str],
+    init_datetime: datetime.datetime,
+    outdir: str | pathlib.Path
+) -> None:
+    """Write an HTML file with QC results for each image.
+
+    Contains columns:
+        ImageId
+        Relative to <datum> [color -> pass or fail]
+        Tolerance
+        Roll
+        FlightLineId [blank]
+        FrameId/SerialNumber [unknown hard coded constant]
+        TideStage [blank]
+
+    The output is a styled HTML table for easy field review.
+    """
+    # Create a new DataFrame to hold the transformed data
+    output_df = pd.DataFrame()
+    
+    # Add existing data.
+    column_mapping = {
+        'ImageId': 'ImageId',
+        'Tolerance': 'tolerance',
+        'Roll': 'Roll'
+    }
+    for datum in datum_list:
+        column_mapping['Relative to ' + datum.upper()] = datum.lower() + '_minus_lmsl'
+        column_mapping[datum.upper() + '_pass'] = datum.lower() + '_in_range'
+    for new_col, old_col in column_mapping.items():
+        if old_col in df_images.columns:
+            output_df[new_col] = df_images[old_col]
+        else:
+            logger.warning(f"Warning: Column '{old_col}' not found in the input DataFrame.")
+            output_df[new_col] = None
+    
+    # Create new data.
+    output_df['FlightLineId'] = None
+    output_df['TideStage'] = None
+    output_df['FrameId/SerialNumber'] = 'MM010193'
+
+    # Ensure columns are in the correct final order
+    final_columns_order = ['ImageId']
+    for datum in datum_list:
+        final_columns_order.append('Relative to ' + datum.upper())
+    final_columns_order = final_columns_order + [
+        'Tolerance', 'Roll', 'FlightLineId', 
+        'FrameId/SerialNumber', 'TideStage'
+    ]
+    output_df = output_df[final_columns_order]
+
+    # Prepare pass/fail DataFrame for styling
+    pass_cols = {}
+    for datum in datum_list:
+        rel_col = 'Relative to ' + datum.upper()
+        pass_col = datum.upper() + '_pass'
+        if pass_col in output_df.columns:
+            pass_cols[rel_col] = output_df[pass_col]
+        else:
+            pass_cols[rel_col] = [None] * len(output_df)
+    pass_df = pd.DataFrame(pass_cols, index=output_df.index)
+
+    # Define the styling function
+    def style_func(val, rel_col, idx):
+        passed = pass_df.at[idx, rel_col]
+        if passed:
+            return 'background-color: #c6efce; color: #006100;'  # green
+        else:
+            return 'background-color: #ffc7ce; color: #9c0006;'  # red
+
+    # Build a DataFrame of styles
+    styles = pd.DataFrame('', index=output_df.index, columns=output_df.columns)
+    for rel_col in pass_cols:
+        for idx in output_df.index:
+            styles.at[idx, rel_col] = style_func(output_df.at[idx, rel_col], rel_col, idx)
+
+    # Save the styled DataFrame as HTML
+    datestr = init_datetime.strftime('%Y%m%dT%H')
+    fileext = '.html'
+    filename = '_'.join([project_name, '_'.join(datum_list), datestr, 'qc'])
+    outfile = pathlib.Path(outdir) / (filename + fileext)
+
+    # Use Styler to apply the styles
+    styler = output_df.style
+    styler = styler.apply(lambda _: styles, axis=None)
+    styler.to_html(outfile, index=False)
+
+    return None
+
+
+

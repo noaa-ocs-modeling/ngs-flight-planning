@@ -104,7 +104,7 @@ def field_qc():
     # time+location separately for each point, to get water level 
     # data, as well as in/out of bounds flags, for each image point
     # (i.e., for as many rows as df_images has).
-    import pdb; pdb.set_trace()
+    
     # Interpolate to the image capture times.
     # This results in water level variables (zeta) where both
     # space and time dimensions have length equal to number of images.
@@ -159,6 +159,8 @@ def field_qc():
     )
     
     # Create output files.
+    outputs.csv_qc(df_out, 'AL2401', datums, init_datetime, 'data/testing/qc')
+    #outputs.html_qc(df_out, 'AL2401', datums, init_datetime, 'data/testing/qc')
     #
     return df_out
 
