@@ -589,6 +589,45 @@ def date_text_prediction(
     return None
 
 
+def output_all_qc(
+    df_images: gpd.GeoDataFrame | pd.DataFrame,
+    project_name: str,
+    datum_list: List[str],
+    init_datetime: datetime.datetime,
+    outdir: str | pathlib.Path
+) -> None:
+    """Run all QC output functions for image QC results.
+
+    Calls:
+        csv_qc
+        html_qc
+        geopackage_qc
+        shapefile_qc
+        geojson_qc
+    """
+    try:
+        csv_qc(df_images, project_name, datum_list, init_datetime, outdir)
+    except Exception as e:
+        logger.error(f"csv_qc failed: {e}", exc_info=True)
+    try:
+        html_qc(df_images, project_name, datum_list, init_datetime, outdir)
+    except Exception as e:
+        logger.error(f"html_qc failed: {e}", exc_info=True)
+    try:
+        geopackage_qc(df_images, project_name, datum_list, init_datetime, outdir)
+    except Exception as e:
+        logger.error(f"geopackage_qc failed: {e}", exc_info=True)
+    try:
+        shapefile_qc(df_images, project_name, datum_list, init_datetime, outdir)
+    except Exception as e:
+        logger.error(f"shapefile_qc failed: {e}", exc_info=True)
+    try:
+        geojson_qc(df_images, project_name, datum_list, init_datetime, outdir)
+    except Exception as e:
+        logger.error(f"geojson_qc failed: {e}", exc_info=True)
+    return None
+
+
 def csv_qc(
     df_images: gpd.GeoDataFrame | pd.DataFrame,
     project_name: str,
@@ -636,12 +675,23 @@ def csv_qc(
             logger.warning(f"Warning: Column '{old_col}' not found in the input DataFrame.")
             output_df[new_col] = None # Or some other default value
     
-    # Create new data.
+    # Some columns are empty/arbitrary in the case of field QC,
+    # but present in the final QC so should be taken if available.
+    # In case of field QC sample data,
     # FlightID and TideStage seem to be empty. 
     # FrameId appears to be a constant "MM010193".
-    output_df['FlightId'] = None
-    output_df['TideStage'] = None
-    output_df['FrameId'] = 'MM010193'
+    if 'FlightId' in df_images.columns:
+        output_df['FlightId'] = df_images['FlightId']
+    else:
+        output_df['FlightId'] = None
+    if 'TideStage' in df_images.columns:
+        output_df['TideStage'] = df_images['TideStage']
+    else:
+        output_df['TideStage'] = None
+    if 'FrameId' in df_images.columns:
+        output_df['FrameId'] = df_images['FrameId']
+    else:
+        output_df['FrameId'] = 'MM010193'
     
     # Extract date and time from datetime index.
     output_df['date'] = df_images.reset_index()['datetime'].dt.strftime('%Y/%m/%d').values
@@ -709,10 +759,23 @@ def html_qc(
             logger.warning(f"Warning: Column '{old_col}' not found in the input DataFrame.")
             output_df[new_col] = None
     
-    # Create new data.
-    output_df['FlightLineId'] = None
-    output_df['TideStage'] = None
-    output_df['FrameId/SerialNumber'] = 'MM010193'
+    # Some columns are empty/arbitrary in the case of field QC,
+    # but present in the final QC so should be taken if available.
+    # In case of field QC sample data,
+    # FlightID and TideStage seem to be empty. 
+    # FrameId appears to be a constant "MM010193".
+    if 'FlightId' in df_images.columns:
+        output_df['FlightId'] = df_images['FlightId']
+    else:
+        output_df['FlightId'] = None
+    if 'TideStage' in df_images.columns:
+        output_df['TideStage'] = df_images['TideStage']
+    else:
+        output_df['TideStage'] = None
+    if 'FrameId' in df_images.columns:
+        output_df['FrameId'] = df_images['FrameId']
+    else:
+        output_df['FrameId'] = 'MM010193'
 
     # Ensure columns are in the correct final order
     final_columns_order = ['ImageId']
@@ -763,4 +826,315 @@ def html_qc(
     return None
 
 
+def geopackage_qc(
+    df_images: gpd.GeoDataFrame | pd.DataFrame,
+    project_name: str,
+    datum_list: List[str],
+    init_datetime: datetime.datetime,
+    outdir: str | pathlib.Path
+) -> None:
+    """Write a GeoPackage with QC results for each image.
+
+    Contains columns:
+        ImageId
+        <datum> (for all in datum_list)
+        <datum>_pass (for all in datum_list)
+        Tolerance
+        Roll
+        FlightId [blank]
+        FrameId [unknown hard coded constant]
+        TideStage [blank]
+        time
+        lat
+        long
+        geometry
+    """
+    # Create a new DataFrame to hold the transformed data
+    output_df = pd.DataFrame()
+
+    # Add existing data.
+    column_mapping = {
+        'ImageId': 'ImageId',
+        'Tolerance': 'tolerance',
+        'Roll': 'Roll',
+        'lat': 'Latitude',
+        'long': 'Longitude',
+        'geometry': 'geometry'
+    }
+    for datum in datum_list:
+        column_mapping[datum.upper()] = datum.lower() + '_minus_lmsl'
+        column_mapping[datum.upper() + '_pass'] = datum.lower() + '_in_range'
+    for new_col, old_col in column_mapping.items():
+        if old_col in df_images.columns:
+            output_df[new_col] = df_images[old_col]
+        else:
+            logger.warning(f"Warning: Column '{old_col}' not found in the input DataFrame.")
+            output_df[new_col] = None
+
+    # Some columns are empty/arbitrary in the case of field QC,
+    # but present in the final QC so should be taken if available.
+    # In case of field QC sample data,
+    # FlightID and TideStage seem to be empty. 
+    # FrameId appears to be a constant "MM010193".
+    if 'FlightId' in df_images.columns:
+        output_df['FlightId'] = df_images['FlightId']
+    else:
+        output_df['FlightId'] = None
+    if 'TideStage' in df_images.columns:
+        output_df['TideStage'] = df_images['TideStage']
+    else:
+        output_df['TideStage'] = None
+    if 'FrameId' in df_images.columns:
+        output_df['FrameId'] = df_images['FrameId']
+    else:
+        output_df['FrameId'] = 'MM010193'
+
+    # Use the "time" column as is, if present
+    try:
+        output_df['time'] = df_images.reset_index()['datetime'].values
+    except KeyError:
+        logger.warning("No 'datetime' column/index found in input DataFrame; setting to None.")
+        output_df['time'] = None
+
+    # Ensure columns are in the correct final order
+    final_columns_order = ['ImageId']
+    for datum in datum_list:
+        final_columns_order.append(datum.upper())
+        final_columns_order.append(datum.upper() + '_pass')
+    final_columns_order = final_columns_order + \
+    [
+        'Tolerance', 'Roll', 'FlightId', 'FrameId', 
+        'TideStage', 'time', 'lat', 'long', 'geometry'
+    ]
+    output_df = output_df[final_columns_order]
+
+    # Save the final DataFrame to GeoPackage
+    datestr = init_datetime.strftime('%Y%m%dT%H')
+    fileext = '.gpkg'
+    filename = '_'.join([project_name, '_'.join(datum_list), datestr, 'qc'])
+    outpath = pathlib.Path(outdir) / (filename + fileext)
+
+    gdf = gpd.GeoDataFrame(output_df, geometry='geometry')
+    gdf.to_file(outpath, driver='GPKG', index=False)
+
+    return None
+
+
+def shapefile_qc(
+    df_images: gpd.GeoDataFrame | pd.DataFrame,
+    project_name: str,
+    datum_list: List[str],
+    init_datetime: datetime.datetime,
+    outdir: str | pathlib.Path
+) -> None:
+    """Write a Shapefile with QC results for each image.
+
+    Contains columns:
+        ImageId
+        <datum> (for all in datum_list)
+        <datum>_pass (for all in datum_list)
+        Tolerance
+        Roll
+        FlightId [blank]
+        FrameId [unknown hard coded constant]
+        TideStage [blank]
+        date (yyyy-mm-dd)
+        time (hh:mm:ss)
+        lat
+        long
+        geometry
+    """
+    # Create a new DataFrame to hold the transformed data
+    output_df = pd.DataFrame()
+
+    # Add existing data.
+    column_mapping = {
+        'ImageId': 'ImageId',
+        'Tolerance': 'tolerance',
+        'Roll': 'Roll',
+        'lat': 'Latitude',
+        'long': 'Longitude',
+        'geometry': 'geometry'
+    }
+    for datum in datum_list:
+        column_mapping[datum.upper()] = datum.lower() + '_minus_lmsl'
+        column_mapping[datum.upper() + '_pass'] = datum.lower() + '_in_range'
+    for new_col, old_col in column_mapping.items():
+        if old_col in df_images.columns:
+            output_df[new_col] = df_images[old_col]
+        else:
+            logger.warning(f"Warning: Column '{old_col}' not found in the input DataFrame.")
+            output_df[new_col] = None
+
+    # Some columns are empty/arbitrary in the case of field QC,
+    # but present in the final QC so should be taken if available.
+    # In case of field QC sample data,
+    # FlightID and TideStage seem to be empty. 
+    # FrameId appears to be a constant "MM010193".
+    if 'FlightId' in df_images.columns:
+        output_df['FlightId'] = df_images['FlightId']
+    else:
+        output_df['FlightId'] = None
+    if 'TideStage' in df_images.columns:
+        output_df['TideStage'] = df_images['TideStage']
+    else:
+        output_df['TideStage'] = None
+    if 'FrameId' in df_images.columns:
+        output_df['FrameId'] = df_images['FrameId']
+    else:
+        output_df['FrameId'] = 'MM010193'
+
+    # Extract date and time from datetime column or index, if present
+    try:
+        dt_series = df_images.reset_index()['datetime']
+        output_df['date'] = pd.to_datetime(dt_series).dt.strftime('%Y-%m-%d').values
+        output_df['time'] = pd.to_datetime(dt_series).dt.strftime('%H:%M:%S').values
+    except Exception:
+        logger.warning("No 'datetime' column/index found in input DataFrame; setting date and time to None.")
+        output_df['date'] = None
+        output_df['time'] = None
+
+    # Ensure columns are in the correct final order
+    final_columns_order = ['ImageId']
+    for datum in datum_list:
+        final_columns_order.append(datum.upper())
+        final_columns_order.append(datum.upper() + '_pass')
+    final_columns_order += [
+        'Tolerance', 'Roll', 'FlightId', 'FrameId', 'TideStage',
+        'date', 'time', 'lat', 'long', 'geometry'
+    ]
+    output_df = output_df[final_columns_order]
+
+    # Save the final DataFrame to Shapefile
+    datestr = init_datetime.strftime('%Y%m%dT%H')
+    fileext = '.shp'
+    filename = '_'.join([project_name, '_'.join(datum_list), datestr, 'qc'])
+    outpath = pathlib.Path(outdir) / (filename + fileext)
+
+    gdf = gpd.GeoDataFrame(output_df, geometry='geometry')
+    gdf.to_file(outpath, index=False)
+
+    return None
+
+
+def geojson_qc(
+    df_images: gpd.GeoDataFrame | pd.DataFrame,
+    project_name: str,
+    datum_list: List[str],
+    init_datetime: datetime.datetime,
+    outdir: str | pathlib.Path
+) -> None:
+    """Write a GeoJSON with QC results for each image.
+
+    Contains columns:
+        ImageId
+        <datum> (for all in datum_list)
+        <datum>_pass (for all in datum_list)
+        Tolerance
+        Roll
+        FlightId [blank]
+        FrameId [unknown hard coded constant]
+        TideStage [blank]
+        time
+        lat
+        long
+        geometry
+    """
+    # Create a new DataFrame to hold the transformed data
+    output_df = pd.DataFrame()
+
+    # Add existing data.
+    column_mapping = {
+        'ImageId': 'ImageId',
+        'Tolerance': 'tolerance',
+        'Roll': 'Roll',
+        'lat': 'Latitude',
+        'long': 'Longitude',
+        'geometry': 'geometry'
+    }
+    for datum in datum_list:
+        column_mapping[datum.upper()] = datum.lower() + '_minus_lmsl'
+        column_mapping[datum.upper() + '_pass'] = datum.lower() + '_in_range'
+    for new_col, old_col in column_mapping.items():
+        if old_col in df_images.columns:
+            output_df[new_col] = df_images[old_col]
+        else:
+            logger.warning(f"Warning: Column '{old_col}' not found in the input DataFrame.")
+            output_df[new_col] = None
+
+    # Some columns are empty/arbitrary in the case of field QC,
+    # but present in the final QC so should be taken if available.
+    # In case of field QC sample data,
+    # FlightID and TideStage seem to be empty. 
+    # FrameId appears to be a constant "MM010193".
+    if 'FlightId' in df_images.columns:
+        output_df['FlightId'] = df_images['FlightId']
+    else:
+        output_df['FlightId'] = None
+    if 'TideStage' in df_images.columns:
+        output_df['TideStage'] = df_images['TideStage']
+    else:
+        output_df['TideStage'] = None
+    if 'FrameId' in df_images.columns:
+        output_df['FrameId'] = df_images['FrameId']
+    else:
+        output_df['FrameId'] = 'MM010193'
+
+    # Use the "time" column as is, if present
+    try:
+        output_df['time'] = df_images.reset_index()['datetime'].values
+    except KeyError:
+        logger.warning("No 'datetime' column/index found in input DataFrame; setting to None.")
+        output_df['time'] = None
+
+    # Ensure columns are in the correct final order
+    final_columns_order = ['ImageId']
+    for datum in datum_list:
+        final_columns_order.append(datum.upper())
+        final_columns_order.append(datum.upper() + '_pass')
+    final_columns_order = final_columns_order + \
+    [
+        'Tolerance', 'Roll', 'FlightId', 'FrameId', 
+        'TideStage', 'time', 'lat', 'long', 'geometry'
+    ]
+    output_df = output_df[final_columns_order]
+
+    # Save the final DataFrame to GeoPackage
+    datestr = init_datetime.strftime('%Y%m%dT%H')
+    fileext = '.geojson'
+    filename = '_'.join([project_name, '_'.join(datum_list), datestr, 'qc'])
+    outpath = pathlib.Path(outdir) / (filename + fileext)
+
+    gdf = gpd.GeoDataFrame(output_df, geometry='geometry')
+    gdf.to_file(outpath, driver='GeoJSON', index=False)
+
+    return None
+
+
+"""
+Differences between field and final QC:
+
+It seems that, for all file formats:
+same format, but data seems to be slightly 
+different (including times, lat, long, etc.).
+Rows are in a different order too.
+
+Tested with:
+for ext in ['csv', 'shp', 'geojson', 'gpkg']:
+...     df2 = gpd.read_file('~/ngs-flight-planning/data/output_files-20250321T164959Z-001/02_QC_Field_out/ImageEvents_C14764
+3_1217241559565_003_RGB1_mhw_mllw_qc.' + ext)
+...     df3 = gpd.read_file('AL2401_1217241559565_mhw_mllw.' + ext)
+...     df2 = df2.set_index('ImageId').loc[df3.ImageId]
+...     df3 = df3.set_index('ImageId')
+...     print('\n\n' + ext + '\n------------------------------------------------------------------------')
+...     print(df2.columns.equals(df3.columns))
+...     for col in df2.columns:
+...         try:
+...             print(col)
+...             print(df2[col].equals(df3[col]))
+...             print((df2[col] - df3[col]).max())
+...             print((df2[col] - df3[col]).min())
+...         except:
+...             pass
+"""
 

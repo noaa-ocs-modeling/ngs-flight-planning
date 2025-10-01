@@ -159,8 +159,7 @@ def field_qc():
     )
     
     # Create output files.
-    outputs.csv_qc(df_out, 'AL2401', datums, init_datetime, 'data/testing/qc')
-    #outputs.html_qc(df_out, 'AL2401', datums, init_datetime, 'data/testing/qc')
+    outputs.output_all_qc(df_out, 'AL2401', datums, init_datetime, 'data/testing/qc')
     #
     return df_out
 
