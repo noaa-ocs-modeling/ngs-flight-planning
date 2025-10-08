@@ -2,6 +2,7 @@
 
 Functions
 ---------
+get_create_output_dir
 output_all_prediction
 geopackage_prediction
 lines_shapefile_prediction
@@ -10,6 +11,12 @@ points_shapefile_prediction
 points_geojson_prediction
 line_text_prediction
 date_text_prediction
+output_all_qc
+csv_qc
+html_qc
+geopackage_qc
+shapefile_qc
+geojson_qc
 
 """
 
@@ -26,6 +33,62 @@ import logging
 
 
 logger = logging.getLogger(__name__)
+
+
+def get_create_output_dir(
+    output_dir_base: pathlib.Path | str, 
+    project_name: str
+) -> pathlib.Path:
+    """Get (create if needed) output directory.
+     
+    Uses base directory and project name.
+
+    Parameters
+    ----------
+    output_dir_base
+        Base directory for outputs.
+    project_name
+        Name of the project.
+
+    Returns
+    -------
+    pathlib.Path
+        The output directory path.
+        If it doesn't already exist, it will be created.
+
+    """
+    default_save_dir = pathlib.Path(output_dir_base) / project_name
+    # TODO: Perhaps we want to add the forecast initialization to the save directory:
+    # default_save_dir = pathlib.Path(output_dir) / project_name / init_datetime.strftime('%Y%m%dT%H')
+    if default_save_dir.is_dir():
+        # It it does exist and isn't empty.
+        if any(default_save_dir.iterdir()):
+            logger.warning(
+                f'Target output directory {str(default_save_dir)} already ' + 
+                'exists and is non-empty. This could result in output files ' + 
+                'being overwritten, depending on the datums and forecast ' + 
+                'initialization times of existing outputs. Specify a different' + 
+                ' output directory or project name, or move/delete existing ' + 
+                'output files to avoid this warning.'
+            )
+            save_dir = default_save_dir
+            # Could use this snippet below if we want a totally new directory for each data processing run.
+            # Leaving here in case it's wanted later.
+            # -----
+            #logger.warning(f'Target output directory {str(default_save_dir)} already exists and is non-empty. Attempting to create a new output directory.')
+            #save_dir = pathlib.Path(output_dir) / '_'.join(
+            #    [project_name, datetime.datetime.now().strftime('%Y%m%dT%H%M%S')]
+            #)
+            #pathlib.Path(dir).mkdir(parents=True, exist_ok=False)
+            # -----
+        # If it does exist, if it's empty, use it.
+        else:
+            save_dir = default_save_dir 
+    # If default doesn't exist, make it.
+    else:
+        save_dir = default_save_dir
+        save_dir.mkdir(parents=True, exist_ok=False)
+    return save_dir
 
 
 def output_all_prediction(
@@ -662,8 +725,8 @@ def csv_qc(
         'ImageId': 'ImageId',
         'Tolerance': 'tolerance',
         'Roll': 'Roll',
-        'lat': 'Latitude',
-        'long': 'Longitude'
+        'lat': 'lat',
+        'long': 'long'
     }
     for datum in datum_list:
         column_mapping[datum.upper()] = datum.lower() + '_minus_lmsl'
@@ -682,6 +745,8 @@ def csv_qc(
     # FrameId appears to be a constant "MM010193".
     if 'FlightId' in df_images.columns:
         output_df['FlightId'] = df_images['FlightId']
+    elif 'FlightLineId' in df_images.columns:
+        output_df['FlightId'] = df_images['FlightLineId']
     else:
         output_df['FlightId'] = None
     if 'TideStage' in df_images.columns:
@@ -690,8 +755,10 @@ def csv_qc(
         output_df['TideStage'] = None
     if 'FrameId' in df_images.columns:
         output_df['FrameId'] = df_images['FrameId']
+    elif 'SerialNumber' in df_images.columns:
+        output_df['FrameId'] = df_images['SerialNumber']
     else:
-        output_df['FrameId'] = 'MM010193'
+        output_df['FrameId'] = None
     
     # Extract date and time from datetime index.
     output_df['date'] = df_images.reset_index()['datetime'].dt.strftime('%Y/%m/%d').values
@@ -764,18 +831,24 @@ def html_qc(
     # In case of field QC sample data,
     # FlightID and TideStage seem to be empty. 
     # FrameId appears to be a constant "MM010193".
+    # Note output names are slightly different in html output
+    # compared to other outputs.
     if 'FlightId' in df_images.columns:
-        output_df['FlightId'] = df_images['FlightId']
+        output_df['FlightLineId'] = df_images['FlightId']
+    elif 'FlightLineId' in df_images.columns:
+        output_df['FlightLineId'] = df_images['FlightLineId']
     else:
-        output_df['FlightId'] = None
+        output_df['FlightLineId'] = None
     if 'TideStage' in df_images.columns:
         output_df['TideStage'] = df_images['TideStage']
     else:
         output_df['TideStage'] = None
     if 'FrameId' in df_images.columns:
-        output_df['FrameId'] = df_images['FrameId']
+        output_df['FrameId/SerialNumber'] = df_images['FrameId']
+    elif 'SerialNumber' in df_images.columns:
+        output_df['FrameId/SerialNumber'] = df_images['SerialNumber']
     else:
-        output_df['FrameId'] = 'MM010193'
+        output_df['FrameId/SerialNumber'] = None
 
     # Ensure columns are in the correct final order
     final_columns_order = ['ImageId']
@@ -857,8 +930,8 @@ def geopackage_qc(
         'ImageId': 'ImageId',
         'Tolerance': 'tolerance',
         'Roll': 'Roll',
-        'lat': 'Latitude',
-        'long': 'Longitude',
+        'lat': 'lat',
+        'long': 'long',
         'geometry': 'geometry'
     }
     for datum in datum_list:
@@ -878,6 +951,8 @@ def geopackage_qc(
     # FrameId appears to be a constant "MM010193".
     if 'FlightId' in df_images.columns:
         output_df['FlightId'] = df_images['FlightId']
+    elif 'FlightLineId' in df_images.columns:
+        output_df['FlightId'] = df_images['FlightLineId']
     else:
         output_df['FlightId'] = None
     if 'TideStage' in df_images.columns:
@@ -886,10 +961,12 @@ def geopackage_qc(
         output_df['TideStage'] = None
     if 'FrameId' in df_images.columns:
         output_df['FrameId'] = df_images['FrameId']
+    elif 'SerialNumber' in df_images.columns:
+        output_df['FrameId'] = df_images['SerialNumber']
     else:
-        output_df['FrameId'] = 'MM010193'
+        output_df['FrameId'] = None
 
-    # Use the "time" column as is, if present
+    # Use the "datetime" (index) column as is, if present
     try:
         output_df['time'] = df_images.reset_index()['datetime'].values
     except KeyError:
@@ -952,8 +1029,8 @@ def shapefile_qc(
         'ImageId': 'ImageId',
         'Tolerance': 'tolerance',
         'Roll': 'Roll',
-        'lat': 'Latitude',
-        'long': 'Longitude',
+        'lat': 'lat',
+        'long': 'long',
         'geometry': 'geometry'
     }
     for datum in datum_list:
@@ -973,6 +1050,8 @@ def shapefile_qc(
     # FrameId appears to be a constant "MM010193".
     if 'FlightId' in df_images.columns:
         output_df['FlightId'] = df_images['FlightId']
+    elif 'FlightLineId' in df_images.columns:
+        output_df['FlightId'] = df_images['FlightLineId']
     else:
         output_df['FlightId'] = None
     if 'TideStage' in df_images.columns:
@@ -981,8 +1060,10 @@ def shapefile_qc(
         output_df['TideStage'] = None
     if 'FrameId' in df_images.columns:
         output_df['FrameId'] = df_images['FrameId']
+    elif 'SerialNumber' in df_images.columns:
+        output_df['FrameId'] = df_images['SerialNumber']
     else:
-        output_df['FrameId'] = 'MM010193'
+        output_df['FrameId'] = None
 
     # Extract date and time from datetime column or index, if present
     try:
@@ -1048,8 +1129,8 @@ def geojson_qc(
         'ImageId': 'ImageId',
         'Tolerance': 'tolerance',
         'Roll': 'Roll',
-        'lat': 'Latitude',
-        'long': 'Longitude',
+        'lat': 'lat',
+        'long': 'long',
         'geometry': 'geometry'
     }
     for datum in datum_list:
@@ -1069,6 +1150,8 @@ def geojson_qc(
     # FrameId appears to be a constant "MM010193".
     if 'FlightId' in df_images.columns:
         output_df['FlightId'] = df_images['FlightId']
+    elif 'FlightLineId' in df_images.columns:
+        output_df['FlightId'] = df_images['FlightLineId']
     else:
         output_df['FlightId'] = None
     if 'TideStage' in df_images.columns:
@@ -1077,10 +1160,12 @@ def geojson_qc(
         output_df['TideStage'] = None
     if 'FrameId' in df_images.columns:
         output_df['FrameId'] = df_images['FrameId']
+    elif 'SerialNumber' in df_images.columns:
+        output_df['FrameId'] = df_images['SerialNumber']
     else:
-        output_df['FrameId'] = 'MM010193'
+        output_df['FrameId'] = None
 
-    # Use the "time" column as is, if present
+    # Use the "datetime" (index) column as is, if present
     try:
         output_df['time'] = df_images.reset_index()['datetime'].values
     except KeyError:

@@ -86,6 +86,9 @@ def load_images_field_gdf(filepath: str) -> gpd.GeoDataFrame:
                 for i in range(len(df.index))
             ]
         )
+        gdf = gdf.rename(
+            columns={lat_name: 'lat', lon_name: 'long'}
+        )
         return gdf
     except Exception as e:
         logger.warning(f'Unable to find latitude & longitude names in data columns ({list(df.columns)})')
@@ -120,9 +123,58 @@ def load_images_final_gdf(filepath: str) -> gpd.GeoDataFrame:
                 for i in range(len(df.index))
             ]
         )
+        gdf = gdf.rename(
+            columns={lat_name: 'lat', lon_name: 'long'}
+        )
         return gdf
     except Exception as e:
         logger.warning(f'Unable to find latitude & longitude names in data columns ({list(df.columns)})')
         logger.warning(f'{e}')
         return df 
 
+
+def get_forecast_init_time(
+    image_times: pd.Series
+) -> datetime.datetime:
+    """
+    Calculate the forecast initialization time from the image times.
+
+    Parameters
+    ----------
+    image_times: pd.Series
+        A pandas Series containing the image capture times.
+
+    Returns
+    -------
+    datetime.datetime
+        The forecast initialization time.
+
+    """
+    cycle_hours = [0, 6, 12, 18]
+    # Calculate from the minimum time.
+    first_image_time = image_times.min()
+    init_hour = max([h for h in cycle_hours if h <= first_image_time.hour])
+    init_datetime = datetime.datetime(
+        year=first_image_time.year,
+        month=first_image_time.month,
+        day=first_image_time.day,
+        hour=init_hour
+    )
+
+    # Warn if the last image occurs in the next forecast cycle.
+    last_image_time = image_times.max()
+    if (last_image_time - init_datetime).total_seconds() > 6 * 60 * 60:
+        logger.warning(
+            f'The maximum image time ({last_image_time}) is more than 6 hours ' + 
+            f'after the forecast initialization time ({init_datetime}). ' + 
+            'This may not be a problem, but a later forecast could be more appropriate.'
+        )
+    # Check that the maximum time is within the forecast period.
+    if (last_image_time - init_datetime).total_seconds() > 7.5 * 24 * 60 * 60:
+        logger.error(
+            f'The maximum image time ({last_image_time}) is more than 7.5 days ' + 
+            f'after the forecast initialization time ({init_datetime}). ' + 
+            'This is outside the forecast period and may result in errors ' + 
+            'in the data processing.'
+        )
+    return init_datetime

@@ -2,6 +2,9 @@
 
 And also its command line argument parser.
 
+Usage will usually be from the command line, so the functions
+listed here are not often called directly.
+
 Functions
 ---------
 main
@@ -49,7 +52,7 @@ def main(
     min_solar_elevation: float,
     output_time_zone: str,
     every_nth_point: int
-) -> None:
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Run NGS flight planning data processing on STOFS forecast data.
 
     If successfully executed, this results in a number of output files
@@ -85,7 +88,10 @@ def main(
 
     Returns
     -------
-    None
+    pandas DataFrame
+        Data frame of time windows by image point.
+    pandas DataFrame
+        Data frame of time windows by flight line.
     
     """
     logger.info(f'Processing data for project {project_name}')
@@ -97,31 +103,8 @@ def main(
         output_time_zone = 'UTC'
     logger.info(f'Output timezone: {output_time_zone}')
 
-    # Create output directory, if needed.
-    default_save_dir = pathlib.Path(output_dir) / project_name
-    # TODO: Perhaps we want to add the forecast initialization to the save directory:
-    # default_save_dir = pathlib.Path(output_dir) / project_name / init_datetime.strftime('%Y%m%dT%H')
-    if default_save_dir.is_dir():
-        # It it does exist and isn't empty.
-        if any(default_save_dir.iterdir()):
-            logger.warning(f'Target output directory {str(default_save_dir)} already exists and is non-empty. This could result in output files being overwritten, depending on the datums and forecast initialization times of existing outputs. Specify a different output directory or project name, or move/delete existing output files to avoid this warning.')
-            save_dir = default_save_dir
-            # Could use this snippet below if we want a totally new directory for each data processing run.
-            # Leaving here in case it's wanted later.
-            # -----
-            #logger.warning(f'Target output directory {str(default_save_dir)} already exists and is non-empty. Attempting to create a new output directory.')
-            #save_dir = pathlib.Path(output_dir) / '_'.join(
-            #    [project_name, datetime.datetime.now().strftime('%Y%m%dT%H%M%S')]
-            #)
-            #pathlib.Path(dir).mkdir(parents=True, exist_ok=False)
-            # -----
-        # If it does exist, if it's empty, use it.
-        else:
-            save_dir = default_save_dir 
-    # If default doesn't exist, make it.
-    else:
-        save_dir = default_save_dir
-        save_dir.mkdir(parents=True, exist_ok=False)
+    # Get (and create, if needed) output directory.
+    save_dir = outputs.get_create_output_dir(output_dir, project_name)
     logger.info(f'Output will be saved to: {str(save_dir)}')
 
     # Read flight paths and calculate image points. 
