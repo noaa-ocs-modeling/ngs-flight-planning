@@ -859,6 +859,7 @@ def html_qc(
         'FrameId/SerialNumber', 'TideStage'
     ]
     output_df = output_df[final_columns_order]
+    output_df = output_df.reset_index(drop=True)
 
     # Prepare pass/fail DataFrame for styling
     pass_cols = {}
@@ -884,7 +885,7 @@ def html_qc(
     for rel_col in pass_cols:
         for idx in output_df.index:
             styles.at[idx, rel_col] = style_func(output_df.at[idx, rel_col], rel_col, idx)
-
+    
     # Save the styled DataFrame as HTML
     datestr = init_datetime.strftime('%Y%m%dT%H')
     fileext = '.html'
@@ -894,7 +895,13 @@ def html_qc(
     # Use Styler to apply the styles
     styler = output_df.style
     styler = styler.apply(lambda _: styles, axis=None)
-    styler.to_html(outfile, index=False)
+    styler = styler.set_table_styles([
+        {'selector': 'th, td', 'props': [('border-style', 'solid'),
+                                        ('border-width', '1px'),
+                                        ('border-color', 'lightgrey')]}
+    ])
+    styler = styler.hide() # This hides the index (mysteriously...)
+    styler.to_html(outfile)
 
     return None
 
