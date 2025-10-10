@@ -924,6 +924,7 @@ def geopackage_qc(
     """
     # Create a new DataFrame to hold the transformed data
     output_df = pd.DataFrame()
+    output_type_dict = {}
 
     # Add existing data.
     column_mapping = {
@@ -937,6 +938,7 @@ def geopackage_qc(
     for datum in datum_list:
         column_mapping[datum.upper()] = datum.lower() + '_minus_lmsl'
         column_mapping[datum.upper() + '_pass'] = datum.lower() + '_in_range'
+        output_type_dict[datum.upper() + '_pass'] = 'str'
     for new_col, old_col in column_mapping.items():
         if old_col in df_images.columns:
             output_df[new_col] = df_images[old_col]
@@ -965,10 +967,12 @@ def geopackage_qc(
         output_df['FrameId'] = df_images['SerialNumber']
     else:
         output_df['FrameId'] = None
+    output_type_dict['FrameId'] = str
+    output_type_dict['TideStage'] = str
 
     # Use the "datetime" (index) column as is, if present
     try:
-        output_df['time'] = df_images.reset_index()['datetime'].values
+        output_df['time'] = df_images.index
     except KeyError:
         logger.warning("No 'datetime' column/index found in input DataFrame; setting to None.")
         output_df['time'] = None
@@ -984,6 +988,8 @@ def geopackage_qc(
         'TideStage', 'time', 'lat', 'long', 'geometry'
     ]
     output_df = output_df[final_columns_order]
+    # Ensure columns are of the correct type.
+    output_df = output_df.astype(output_type_dict)
 
     # Save the final DataFrame to GeoPackage
     datestr = init_datetime.strftime('%Y%m%dT%H')
@@ -1023,6 +1029,7 @@ def shapefile_qc(
     """
     # Create a new DataFrame to hold the transformed data
     output_df = pd.DataFrame()
+    output_type_dict = {}
 
     # Add existing data.
     column_mapping = {
@@ -1036,6 +1043,7 @@ def shapefile_qc(
     for datum in datum_list:
         column_mapping[datum.upper()] = datum.lower() + '_minus_lmsl'
         column_mapping[datum.upper() + '_pass'] = datum.lower() + '_in_range'
+        output_type_dict[datum.upper() + '_pass'] = 'str'
     for new_col, old_col in column_mapping.items():
         if old_col in df_images.columns:
             output_df[new_col] = df_images[old_col]
@@ -1064,6 +1072,8 @@ def shapefile_qc(
         output_df['FrameId'] = df_images['SerialNumber']
     else:
         output_df['FrameId'] = None
+    output_type_dict['FrameId'] = str
+    output_type_dict['TideStage'] = str
 
     # Extract date and time from datetime column or index, if present
     try:
@@ -1074,6 +1084,7 @@ def shapefile_qc(
         logger.warning("No 'datetime' column/index found in input DataFrame; setting date and time to None.")
         output_df['date'] = None
         output_df['time'] = None
+    output_type_dict['date'] = 'datetime64[ms]'
 
     # Ensure columns are in the correct final order
     final_columns_order = ['ImageId']
@@ -1085,6 +1096,8 @@ def shapefile_qc(
         'date', 'time', 'lat', 'long', 'geometry'
     ]
     output_df = output_df[final_columns_order]
+    # Ensure columns are of the correct type.
+    output_df = output_df.astype(output_type_dict)
 
     # Save the final DataFrame to Shapefile
     datestr = init_datetime.strftime('%Y%m%dT%H')
@@ -1123,6 +1136,7 @@ def geojson_qc(
     """
     # Create a new DataFrame to hold the transformed data
     output_df = pd.DataFrame()
+    output_type_dict = {}
 
     # Add existing data.
     column_mapping = {
@@ -1136,6 +1150,7 @@ def geojson_qc(
     for datum in datum_list:
         column_mapping[datum.upper()] = datum.lower() + '_minus_lmsl'
         column_mapping[datum.upper() + '_pass'] = datum.lower() + '_in_range'
+        output_type_dict[datum.upper() + '_pass'] = 'str'
     for new_col, old_col in column_mapping.items():
         if old_col in df_images.columns:
             output_df[new_col] = df_images[old_col]
@@ -1164,6 +1179,7 @@ def geojson_qc(
         output_df['FrameId'] = df_images['SerialNumber']
     else:
         output_df['FrameId'] = None
+    output_type_dict['FrameId'] = str
 
     # Use the "datetime" (index) column as is, if present
     try:
@@ -1183,6 +1199,8 @@ def geojson_qc(
         'TideStage', 'time', 'lat', 'long', 'geometry'
     ]
     output_df = output_df[final_columns_order]
+    # Ensure columns are of the correct type.
+    output_df = output_df.astype(output_type_dict)
 
     # Save the final DataFrame to GeoPackage
     datestr = init_datetime.strftime('%Y%m%dT%H')
