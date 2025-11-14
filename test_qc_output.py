@@ -1,3 +1,17 @@
+"""Script to compare QC output files with samples provided.
+
+Usage: python test_qc_output.py <file_extension> <qc_type>
+Where <file_extension> is the file extension (e.g., 'geojson',
+'shp') and <qc_type> is either '2'/'field' or '3'/'final'.
+
+Example: python test_qc_output.py geojson field
+
+The file locations and names are hardcoded within the script.
+They could be modified as needed by editing the variables at 
+the top of the script (dir_ref_2, file_root_ref_2, etc.).
+"""
+
+
 import sys
 import geopandas as gpd
 

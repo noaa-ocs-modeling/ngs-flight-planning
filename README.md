@@ -42,17 +42,17 @@ pip install -r dev_requirements.txt
 Eventually, the aim is to use the package for long-term (months ahead) flight planning, near-term (days ahead) flight planning, and post flight QC (preliminary and final). For now, only the near-term flight planning has been implemeted. This is run using a python command line script. The process should output the same types of files as the existing TCARI method. 
 
 ## Flight planning
-Run the script `main.py`, with three required command line arguments:
+Run the script `predict.py`, with three required command line arguments:
 ```
-python main.py <project_name> <path_to_flight_lines>.wpt <STOFS_forecast_initialization>
+python predict.py <project_name> <path_to_flight_lines>.wpt <STOFS_forecast_initialization>
 ```
 replacing the parts in angle brackets `<...>` with actual values. More detailed descriptions of these arguments, as well as a number of additional, optional command line arguments, can be accessed by running
 ```
-python main.py -h
+python predict.py -h
 ```
 An example command might look like:
 ```
-python main.py AL2401 data/AL2401.wpt 2025-01-01T12:00 -o data/testing -l DEBUG
+python predict.py AL2401 data/AL2401.wpt 2025-01-01T12:00 -o data/testing -l DEBUG
 ```
 If this executes successfully, the following output files should be saved in `./data/testing/AL2401/`:
 ```
@@ -63,4 +63,33 @@ AL2401_mllw_mhw_20250101T12.lines.dbf      AL2401_mllw_mhw_20250101T12.pts.cpg
 AL2401_mllw_mhw_20250101T12.lines.geojson  AL2401_mllw_mhw_20250101T12.pts.dbf
 ```
 
-## QC (not yet implemented)
+## QC
+Run the script `qc.py`, with two required command line arguments:
+```
+python qc.py <project_name> <path_to_images_file>.csv <STOFS_forecast_initialization>
+```
+replacing the parts in angle brackets `<...>` with actual values. More detailed descriptions of these arguments, as well as a number of additional, optional command line arguments, can be accessed by running
+```
+python qc.py -h
+```
+The most commonly used optional command line arguments might be `-q`, with value `field` or `final`, to select which stage of QC is being run, and `-d` to list datums to analyze. These default to `field` and ['mllw', 'mhw'], respectively.
+
+An example command might look like:
+```
+python qc.py \
+    AL2401_qc \
+    data/ImageEvents_C147643_1217241559565_003_RGB1.csv \
+    -o data/testing \
+    -l DEBUG
+```
+If this executes successfully, the following output files should be saved in `./data/testing/AL2401_qc/`:
+```
+AL2401_qc_mllw_mhw_20241217T12_qc.html
+AL2401_qc_mllw_mhw_20241217T12_qc.geojson
+AL2401_qc_mllw_mhw_20241217T12_qc.csv
+AL2401_qc_mllw_mhw_20241217T12_qc.gpkg
+AL2401_qc_mllw_mhw_20241217T12_qc.shp
+AL2401_qc_mllw_mhw_20241217T12_qc.cpg
+AL2401_qc_mllw_mhw_20241217T12_qc.shx
+AL2401_qc_mllw_mhw_20241217T12_qc.dbf
+```

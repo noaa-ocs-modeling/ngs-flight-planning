@@ -7,7 +7,8 @@ listed here are not often called directly.
 
 Example:
     $ python qc.py AL2401_qc data/ImageEvents.csv -q field -o data/testing -l DEBUG
-python qc.py AL2401_qc data/input_files-20250321T164954Z-001/input_files/02_after_flight_qc/ImageEvents_C147643_1217241559565_003_RGB1.csv -q field -o data/testing -l DEBUG
+    $ python qc.py AL2401_qc data/input_files-20250321T164954Z-001/input_files/02_after_flight_qc/ImageEvents_C147643_1217241559565_003_RGB1.csv -q field -o data/testing -l DEBUG
+
 Functions
 ---------
 main
