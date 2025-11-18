@@ -116,7 +116,21 @@ def load_forecast_ds(init_datetime: datetime.datetime,
         logger.info('Loading LMSL data...')
         subset_ds_lmsl.load()
         logger.info('Subtracting LMSL...')
-        subset_ds['zeta'] = subset_ds['zeta'] - subset_ds_lmsl['mean_sea_level']
+        if subset_ds['zeta'].node.shape == subset_ds_lmsl['mean_sea_level'].node.shape:
+            subset_ds['zeta'] = subset_ds['zeta'] - subset_ds_lmsl['mean_sea_level']
+        else:
+            logger.warning('Cannot subtract STOFS mean sea level: shape mismatch. Attempting manual node matching.')
+            if numpy.allclose(ds.y.data, ds_lmsl.y.data) and numpy.allclose(ds.x.data, ds_lmsl.x.data):
+                ds = ds.assign_coords(node=('node', range(ds.node.shape[0])))
+                subset_inds = ds.xsg.subset_polygon(shapely.get_coordinates(bbox))
+                manual_subset_lmsl = ds_lmsl.isel(node=subset_inds['node'].data)
+                subset_ds['zeta'] = subset_ds['zeta'] - manual_subset_lmsl['mean_sea_level']
+                logger.info('Manual node matching successful. Subtracted LMSL.')
+            else:
+                logger.error('Manual node matching failed: forecast and LMSL data have different x and y coordinates. Cannot subtract LMSL.')
+                raise ValueError('Manual node matching failed: forecast and LMSL data have different x and y coordinates. Cannot subtract LMSL.')
+
+
 
     logger.info('Renaming x and y coordinates to match thalassa.')
     return subset_ds.rename({'x':'lon', 'y':'lat'})
