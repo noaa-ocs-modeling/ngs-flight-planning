@@ -25,10 +25,12 @@ import s3fs
 import xarray_subset_grid
 import math
 from coastalmodeling_vdatum import vdatum
+from obstore.store import S3Store
+from virtualizarr.parsers import HDFParser
+from virtualizarr.registry import ObjectStoreRegistry
 
 
 logger = logging.getLogger(__name__)
-
 
 
 def get_box(geometries: gpd.GeoDataFrame, 
@@ -85,10 +87,24 @@ def load_forecast_ds(init_datetime: datetime.datetime,
     aws_bucket = 'noaa-gestofs-pds'
     subdir = f'stofs_2d_glo.{yyyymmdd}'
     filename = f'stofs_2d_glo.t{hh}z.fields.cwl.nc'
-    s3 = s3fs.S3FileSystem(anon=True)  # Enable anonymous access to the S3 bucket
-    url = f's3://{aws_bucket}/{subdir}/{filename}'
+    #
+    store = S3Store(
+        bucket=aws_bucket,
+        region="us-east-1",
+        skip_signature=True
+    )
+    registry = ObjectStoreRegistry({f"s3://{aws_bucket}": store})
+    parser = HDFParser()
+    manifest_store = parser(
+        url=f"s3://{aws_bucket}/{subdir}/{filename}",
+        registry=registry
+    )
     logger.info('Opening data file...')
-    ds = xarray.open_dataset(s3.open(url, 'rb'), drop_variables=['nvel'])
+    ds = xarray.open_zarr(
+        manifest_store,
+        consolidated=False,
+        zarr_format=3,
+    )
     logger.info('Finished opening data file.')
     logger.info('Assigning grid topology...')
     ds = xarray_subset_grid.grids.ugrid.assign_ugrid_topology(ds)
@@ -107,6 +123,7 @@ def load_forecast_ds(init_datetime: datetime.datetime,
     if convert_to_local_msl:
         lmsl_filename = 'noaa-nos-stofs2d-pds/_archive/msl_2017-2019_avg/GSTOFSv5.6.5_msl_2017-2019_avg_20241619.nc'
         logger.info('Opening LMSL dataset...')
+        s3 = s3fs.S3FileSystem(anon=True)
         ds_lmsl = xarray.open_dataset(
             s3.open(f's3://{lmsl_filename}', 'rb')
         )
