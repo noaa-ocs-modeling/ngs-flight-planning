@@ -8,3 +8,6 @@ shapely
 pvlib 
 xarray_subset_grid @ git+https://github.com/asascience-open/xarray-subset-grid.git
 coastalmodeling_vdatum @ git+https://github.com/oceanmodeling/coastalmodeling-vdatum.git
+# added to support virtualizarr data loading
+obstore
+virtualizarr >=2.0
