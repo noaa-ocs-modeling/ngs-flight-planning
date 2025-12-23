@@ -13,6 +13,7 @@ tidal_tol_from_range
 
 
 import logging
+import sys
 import shapely
 import geopandas as gpd
 import datetime
@@ -144,7 +145,7 @@ def get_nearest_inds_dists(
     ds_y_var: str = 'y',
     df_x_var:str = 'longitude', 
     df_y_var: str = 'latitude'
-) -> (xarray.DataArray, xarray.DataArray):
+) -> tuple[xarray.DataArray, xarray.DataArray]:
     """Get indices and distances to nearest points in dataset.
 
     If the "station" data frame only has 1 station, might need to use
