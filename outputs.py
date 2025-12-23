@@ -729,8 +729,16 @@ def csv_qc(
         'long': 'long'
     }
     for datum in datum_list:
-        column_mapping[datum.upper()] = datum.lower() + '_minus_lmsl'
+        # Add pass fail column for each datum.
         column_mapping[datum.upper() + '_pass'] = datum.lower() + '_in_range'
+        # Add "relative to datum" column.
+        try:
+            output_df[datum.upper()] = df_images['zeta'] - df_images[datum.lower() + '_minus_lmsl']
+        except KeyError:
+            logger.warning(f"Warning: Expecting columns 'zeta' and '{datum.lower() + '_minus_lmsl'}' in the input DataFrame.")
+            logger.warning(f"Found columns: {df_images.columns.tolist()}")
+    
+    # Remap columns from df_images to output_df.
     for new_col, old_col in column_mapping.items():
         if old_col in df_images.columns:
             output_df[new_col] = df_images[old_col]
@@ -817,8 +825,16 @@ def html_qc(
         'Roll': 'Roll'
     }
     for datum in datum_list:
-        column_mapping['Relative to ' + datum.upper()] = datum.lower() + '_minus_lmsl'
+        # Add pass fail column for each datum.
         column_mapping[datum.upper() + '_pass'] = datum.lower() + '_in_range'
+        # Add "relative to datum" column.
+        try:
+            output_df['Relative to ' + datum.upper()] = df_images['zeta'] - df_images[datum.lower() + '_minus_lmsl']
+        except KeyError:
+            logger.warning(f"Warning: Expecting columns 'zeta' and '{datum.lower() + '_minus_lmsl'}' in the input DataFrame.")
+            logger.warning(f"Found columns: {df_images.columns.tolist()}")
+        
+    # Remap columns from df_images to output_df.
     for new_col, old_col in column_mapping.items():
         if old_col in df_images.columns:
             output_df[new_col] = df_images[old_col]
@@ -943,9 +959,17 @@ def geopackage_qc(
         'geometry': 'geometry'
     }
     for datum in datum_list:
-        column_mapping[datum.upper()] = datum.lower() + '_minus_lmsl'
+        # Add "relative to datum" column.
+        try:
+            output_df[datum.upper()] = df_images['zeta'] - df_images[datum.lower() + '_minus_lmsl']
+        except KeyError:
+            logger.warning(f"Warning: Expecting columns 'zeta' and '{datum.lower() + '_minus_lmsl'}' in the input DataFrame.")
+            logger.warning(f"Found columns: {df_images.columns.tolist()}")
+        # Add pass fail column for each datum.
         column_mapping[datum.upper() + '_pass'] = datum.lower() + '_in_range'
         output_type_dict[datum.upper() + '_pass'] = 'str'
+    
+    # Remap columns from df_images to output_df.
     for new_col, old_col in column_mapping.items():
         if old_col in df_images.columns:
             output_df[new_col] = df_images[old_col]
@@ -1048,9 +1072,17 @@ def shapefile_qc(
         'geometry': 'geometry'
     }
     for datum in datum_list:
-        column_mapping[datum.upper()] = datum.lower() + '_minus_lmsl'
+        # Add "relative to datum" column.
+        try:
+            output_df[datum.upper()] = df_images['zeta'] - df_images[datum.lower() + '_minus_lmsl']
+        except KeyError:
+            logger.warning(f"Warning: Expecting columns 'zeta' and '{datum.lower() + '_minus_lmsl'}' in the input DataFrame.")
+            logger.warning(f"Found columns: {df_images.columns.tolist()}")
+        # Add pass fail column for each datum.
         column_mapping[datum.upper() + '_pass'] = datum.lower() + '_in_range'
         output_type_dict[datum.upper() + '_pass'] = 'str'
+
+    # Remap columns from df_images to output_df.
     for new_col, old_col in column_mapping.items():
         if old_col in df_images.columns:
             output_df[new_col] = df_images[old_col]
@@ -1155,9 +1187,17 @@ def geojson_qc(
         'geometry': 'geometry'
     }
     for datum in datum_list:
-        column_mapping[datum.upper()] = datum.lower() + '_minus_lmsl'
+        # Add "relative to datum" column.
+        try:
+            output_df[datum.upper()] = df_images['zeta'] - df_images[datum.lower() + '_minus_lmsl']
+        except KeyError:
+            logger.warning(f"Warning: Expecting columns 'zeta' and '{datum.lower() + '_minus_lmsl'}' in the input DataFrame.")
+            logger.warning(f"Found columns: {df_images.columns.tolist()}")
+        # Add pass fail column for each datum.
         column_mapping[datum.upper() + '_pass'] = datum.lower() + '_in_range'
         output_type_dict[datum.upper() + '_pass'] = 'str'
+    
+    # Remap columns from df_images to output_df.
     for new_col, old_col in column_mapping.items():
         if old_col in df_images.columns:
             output_df[new_col] = df_images[old_col]
