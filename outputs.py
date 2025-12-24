@@ -789,8 +789,8 @@ def csv_qc(
     datestr = init_datetime.strftime('%Y%m%dT%H')
     fileext = '.csv'
     filename = '_'.join([project_name, '_'.join(datum_list), datestr, 'qc'])
-    outfile = open(pathlib.Path(outdir) / (filename + fileext), 'w')
-    output_df.to_csv(outfile, index=False)
+    outpath = pathlib.Path(outdir) / (filename + fileext)
+    output_df.to_csv(outpath, index=False)
     
     return None
 
@@ -881,9 +881,9 @@ def html_qc(
     pass_cols = {}
     for datum in datum_list:
         rel_col = 'Relative to ' + datum.upper()
-        pass_col = datum.upper() + '_pass'
-        if pass_col in output_df.columns:
-            pass_cols[rel_col] = output_df[pass_col]
+        pass_col = datum.lower() + '_in_range'
+        if pass_col in df_images.columns:
+            pass_cols[rel_col] = df_images[pass_col].values
         else:
             pass_cols[rel_col] = [None] * len(output_df)
     pass_df = pd.DataFrame(pass_cols, index=output_df.index)
@@ -901,7 +901,7 @@ def html_qc(
     for rel_col in pass_cols:
         for idx in output_df.index:
             styles.at[idx, rel_col] = style_func(output_df.at[idx, rel_col], rel_col, idx)
-    
+
     # Save the styled DataFrame as HTML
     datestr = init_datetime.strftime('%Y%m%dT%H')
     fileext = '.html'
@@ -918,7 +918,7 @@ def html_qc(
     ])
     styler = styler.hide() # This hides the index (mysteriously...)
     styler.to_html(outfile)
-
+    #
     return None
 
 
