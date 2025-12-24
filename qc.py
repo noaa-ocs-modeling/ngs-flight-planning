@@ -55,6 +55,7 @@ def main(
     output_dir: pathlib.Path | str,
     min_solar_elevation: float,
     output_time_zone: str,
+    water_level_units: str
 ) -> pd.DataFrame:
     """
     Main entry point for post-flight QC processing using STOFS forecast water levels.
@@ -80,6 +81,8 @@ def main(
         Minimum solar elevation to test if image meets requirements.
     output_time_zone : str
         Timezone for output times (must be a valid pytz timezone string).
+    water_level_units : str
+        Desired units for water level outputs (e.g., 'm', 'ft').
 
     Returns
     -------
@@ -97,6 +100,7 @@ def main(
         logger.warning('Specified output_time_zone not available in pytz: defaulting to UTC.')
         output_time_zone = 'UTC'
     logger.info(f'Output timezone: {output_time_zone}')
+    logger.info(f'Output water level units: {water_level_units}')
 
     # Get (and create, if needed) output directory.
     save_dir = outputs.get_create_output_dir(output_dir, project_name)
@@ -254,7 +258,7 @@ def main(
     logger.debug(df_out)
 
     # Create output files.
-    outputs.output_all_qc(df_out, project_name, datums, init_datetime, save_dir)
+    outputs.output_all_qc(df_out, project_name, datums, water_level_units, init_datetime, save_dir)
     #
     return df_out
 
@@ -281,6 +285,9 @@ def qc_arg_parser():
     parser.add_argument('-z', '--output_time_zone', type=str, 
                         default='UTC',
                         help="The timezone to convert output times to, e.g., 'UTC', 'US/Eastern', 'US/Alaska'. This must be one of the timezones available in `pytz`. See https://en.wikipedia.org/wiki/List_of_tz_database_time_zones for more options. (default: %(default)s)")
+    parser.add_argument('-u', '--water_level_units', type=str,
+                        default='file_format_default',
+                        help="The vertical datum to use for water level and related outputs (e.g., 'ft', 'm', 'file_format_default' for hard-coded output format-specific units) (default: %(default)s)")
     parser.add_argument('-l', '--logging-level', type=str,
                         default='INFO',
                         help="Logging level passed to program logger ( one of ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'] default: %(default)s)")
@@ -301,5 +308,6 @@ if __name__ == '__main__':
         args.datums,
         pathlib.Path(args.output_directory).resolve(),
         args.min_solar_elevation,
-        args.output_time_zone
+        args.output_time_zone,
+        args.water_level_units
     )

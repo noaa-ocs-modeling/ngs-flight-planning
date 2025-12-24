@@ -17,6 +17,8 @@ html_qc
 geopackage_qc
 shapefile_qc
 geojson_qc
+convert_output_z_units
+get_output_z_units
 
 """
 
@@ -130,12 +132,19 @@ def output_all_prediction(
     None
     
     """
+    logger.info("Saving geopackage prediction output...")
     geopackage_prediction(df_lines, df_line_windows, df_points, df_point_windows, project_name, datum_list, init_datetime,outdir)
+    logger.info("Saving line prediction shapefile...")
     lines_shapefile_prediction(df_lines, df_line_windows, project_name, datum_list, init_datetime, outdir)
+    logger.info("Saving line prediction geojson...")
     lines_geojson_prediction(df_lines, df_line_windows, project_name, datum_list, init_datetime, outdir)
+    logger.info("Saving point prediction shapefile...")
     points_shapefile_prediction(df_points, df_point_windows, project_name, datum_list, init_datetime, outdir)
+    logger.info("Saving point prediction geojson...")
     points_geojson_prediction(df_points, df_point_windows, project_name, datum_list, init_datetime, outdir)
+    logger.info("Saving line-wise prediction text file...")
     line_text_prediction(df_lines, df_line_windows, project_name, datum_list, init_datetime, outdir)
+    logger.info("Saving date-wise prediction text file...")
     date_text_prediction(df_lines, df_line_windows, project_name, datum_list, init_datetime, outdir)
     return None
 
@@ -656,6 +665,7 @@ def output_all_qc(
     df_images: gpd.GeoDataFrame | pd.DataFrame,
     project_name: str,
     datum_list: List[str],
+    z_units: str,
     init_datetime: datetime.datetime,
     outdir: str | pathlib.Path
 ) -> None:
@@ -669,32 +679,116 @@ def output_all_qc(
         geojson_qc
     """
     try:
-        csv_qc(df_images, project_name, datum_list, init_datetime, outdir)
+        logger.info("Saving QC CSV output...")
+        csv_qc(df_images, project_name, datum_list, z_units, init_datetime, outdir)
     except Exception as e:
         logger.error(f"csv_qc failed: {e}", exc_info=True)
     try:
-        html_qc(df_images, project_name, datum_list, init_datetime, outdir)
+        logger.info("Saving QC HTML output...")
+        html_qc(df_images, project_name, datum_list, z_units, init_datetime, outdir)
     except Exception as e:
         logger.error(f"html_qc failed: {e}", exc_info=True)
     try:
-        geopackage_qc(df_images, project_name, datum_list, init_datetime, outdir)
+        logger.info("Saving QC GeoPackage output...")
+        geopackage_qc(df_images, project_name, datum_list, z_units, init_datetime, outdir)
     except Exception as e:
         logger.error(f"geopackage_qc failed: {e}", exc_info=True)
     try:
-        shapefile_qc(df_images, project_name, datum_list, init_datetime, outdir)
+        logger.info("Saving QC Shapefile output...")
+        shapefile_qc(df_images, project_name, datum_list, z_units, init_datetime, outdir)
     except Exception as e:
         logger.error(f"shapefile_qc failed: {e}", exc_info=True)
     try:
-        geojson_qc(df_images, project_name, datum_list, init_datetime, outdir)
+        logger.info("Saving QC GeoJSON output...")
+        geojson_qc(df_images, project_name, datum_list, z_units, init_datetime, outdir)
     except Exception as e:
         logger.error(f"geojson_qc failed: {e}", exc_info=True)
     return None
+
+
+def convert_output_z_units(
+    df: gpd.GeoDataFrame | pd.DataFrame, 
+    datum_list: List[str], 
+    z_units: str
+) -> gpd.GeoDataFrame | pd.DataFrame:
+    """Convert water level-based columns to desired output units.
+
+    In this function, the z_units value MUST be either 'ft' or 'm'.
+    Logic elsewhere should ensure this before calling this function.
+
+    Parameters
+    ----------
+    df : gpd.GeoDataFrame or pd.DataFrame
+        Input DataFrame containing water level data.
+    datum_list : list of str
+        List of vertical datums to consider for conversion.
+    z_units : str
+        Desired vertical units for output ('ft' or 'm').
+
+    Returns
+    -------
+    gpd.GeoDataFrame or pd.DataFrame
+        DataFrame with converted water level columns.
+
+    """
+    # Define conversion factor and append string.
+    if z_units == 'ft':
+        conversion_factor = 3.28084
+        append_str = ' (ft)'
+    elif z_units == 'm':
+        conversion_factor = 1.0
+        append_str = ' (m)'
+    else:
+        logger.warning(f"Warning: Unrecognized water level units '{z_units}'. No conversion applied.")
+        conversion_factor = 1.0
+        append_str = ''
+
+    # Work out which columns to convert.
+    cols_to_convert = []
+    if 'tolerance' in df.columns:
+        cols_to_convert.append('tolerance')
+    if 'Tolerance' in df.columns:
+        cols_to_convert.append('Tolerance') 
+    for datum in datum_list:
+        # Most of the QC outputs just use the datum name for the
+        # water level relative to that datum.
+        if datum.upper() in df.columns:
+            cols_to_convert.append(datum.upper())
+        # HTML QC uses 'Relative to <DATUM>' for the column name.
+        if 'Relative to ' + datum.upper() in df.columns:
+            cols_to_convert.append('Relative to ' + datum.upper())
+
+    # Apply the conversions.
+    df_converted = df.copy()
+    for col in cols_to_convert:
+        df_converted[col] = df_converted[col] * conversion_factor
+        df_converted = df_converted.rename(columns={col: col + append_str})
+
+    return df_converted
+
+
+def get_output_z_units(
+    z_units: str,
+    default_z_units: str
+) -> str:
+    """Get output z units string based on input z_units parameter."""
+    if z_units.lower() in ['feet', 'ft', 'foot', 'f']:
+        output_z_units = 'ft'
+    elif z_units.lower() in ['meters', 'meter', 'm', 'metres', 'metre']:
+        output_z_units = 'm'
+    elif z_units.lower() == 'file_format_default':
+        output_z_units = default_z_units
+    else:
+        logger.warning(f"Warning: Unrecognized water level units '{z_units}'. Using default units '{default_z_units}'.")
+        output_z_units = default_z_units
+    return output_z_units
 
 
 def csv_qc(
     df_images: gpd.GeoDataFrame | pd.DataFrame,
     project_name: str,
     datum_list: List[str],
+    z_units: str,
     init_datetime: datetime.datetime,
     outdir: str | pathlib.Path
 ) -> None:
@@ -716,6 +810,10 @@ def csv_qc(
         long
         
     """
+    # Define units to use.
+    default_z_units = 'ft'
+    output_z_units = get_output_z_units(z_units, default_z_units)
+
     # Create a new DataFrame to hold the transformed data
     output_df = pd.DataFrame()
     
@@ -783,6 +881,9 @@ def csv_qc(
         'FrameId', 'TideStage', 'date', 'time', 'lat', 'long'
     ]
     output_df = output_df[final_columns_order]
+
+    # Convert z units as needed.
+    output_df = convert_output_z_units(output_df, datum_list, output_z_units)
     
     # Save the final DataFrame to CSV
     # Define filename.
@@ -799,6 +900,7 @@ def html_qc(
     df_images: gpd.GeoDataFrame | pd.DataFrame,
     project_name: str,
     datum_list: List[str],
+    z_units: str,
     init_datetime: datetime.datetime,
     outdir: str | pathlib.Path
 ) -> None:
@@ -815,6 +917,10 @@ def html_qc(
 
     The output is a styled HTML table for easy field review.
     """
+    # Define units to use.
+    default_z_units = 'ft'
+    output_z_units = get_output_z_units(z_units, default_z_units)
+
     # Create a new DataFrame to hold the transformed data
     output_df = pd.DataFrame()
     
@@ -902,11 +1008,12 @@ def html_qc(
         for idx in output_df.index:
             styles.at[idx, rel_col] = style_func(output_df.at[idx, rel_col], rel_col, idx)
 
-    # Save the styled DataFrame as HTML
-    datestr = init_datetime.strftime('%Y%m%dT%H')
-    fileext = '.html'
-    filename = '_'.join([project_name, '_'.join(datum_list), datestr, 'qc'])
-    outfile = pathlib.Path(outdir) / (filename + fileext)
+    # Convert z units as needed.
+    old_col_names = output_df.columns.tolist()
+    output_df = convert_output_z_units(output_df, datum_list, output_z_units)
+    new_col_names = output_df.columns.tolist()
+    # Update styles DataFrame column names accordingly (slightly hacky...).
+    styles = styles.rename(columns=dict(zip(old_col_names, new_col_names)))
 
     # Use Styler to apply the styles
     styler = output_df.style
@@ -917,6 +1024,12 @@ def html_qc(
                                         ('border-color', 'lightgrey')]}
     ])
     styler = styler.hide() # This hides the index (mysteriously...)
+
+    # Save the styled DataFrame as HTML
+    datestr = init_datetime.strftime('%Y%m%dT%H')
+    fileext = '.html'
+    filename = '_'.join([project_name, '_'.join(datum_list), datestr, 'qc'])
+    outfile = pathlib.Path(outdir) / (filename + fileext)
     styler.to_html(outfile)
     #
     return None
@@ -926,6 +1039,7 @@ def geopackage_qc(
     df_images: gpd.GeoDataFrame | pd.DataFrame,
     project_name: str,
     datum_list: List[str],
+    z_units: str,
     init_datetime: datetime.datetime,
     outdir: str | pathlib.Path
 ) -> None:
@@ -945,6 +1059,10 @@ def geopackage_qc(
         long
         geometry
     """
+    # Define units to use.
+    default_z_units = 'ft'
+    output_z_units = get_output_z_units(z_units, default_z_units)
+
     # Create a new DataFrame to hold the transformed data
     output_df = pd.DataFrame()
     output_type_dict = {}
@@ -1022,6 +1140,9 @@ def geopackage_qc(
     # Ensure columns are of the correct type.
     output_df = output_df.astype(output_type_dict)
 
+    # Convert z units as needed.
+    output_df = convert_output_z_units(output_df, datum_list, output_z_units)
+
     # Save the final DataFrame to GeoPackage
     datestr = init_datetime.strftime('%Y%m%dT%H')
     fileext = '.gpkg'
@@ -1038,6 +1159,7 @@ def shapefile_qc(
     df_images: gpd.GeoDataFrame | pd.DataFrame,
     project_name: str,
     datum_list: List[str],
+    z_units: str,
     init_datetime: datetime.datetime,
     outdir: str | pathlib.Path
 ) -> None:
@@ -1058,6 +1180,10 @@ def shapefile_qc(
         long
         geometry
     """
+    # Define units to use.
+    default_z_units = 'ft'
+    output_z_units = get_output_z_units(z_units, default_z_units)
+
     # Create a new DataFrame to hold the transformed data
     output_df = pd.DataFrame()
     output_type_dict = {}
@@ -1138,6 +1264,9 @@ def shapefile_qc(
     # Ensure columns are of the correct type.
     output_df = output_df.astype(output_type_dict)
 
+    # Convert z units as needed.
+    output_df = convert_output_z_units(output_df, datum_list, output_z_units)
+
     # Save the final DataFrame to Shapefile
     datestr = init_datetime.strftime('%Y%m%dT%H')
     fileext = '.shp'
@@ -1154,6 +1283,7 @@ def geojson_qc(
     df_images: gpd.GeoDataFrame | pd.DataFrame,
     project_name: str,
     datum_list: List[str],
+    z_units: str,
     init_datetime: datetime.datetime,
     outdir: str | pathlib.Path
 ) -> None:
@@ -1173,6 +1303,10 @@ def geojson_qc(
         long
         geometry
     """
+    # Define units to use.
+    default_z_units = 'ft'
+    output_z_units = get_output_z_units(z_units, default_z_units)
+
     # Create a new DataFrame to hold the transformed data
     output_df = pd.DataFrame()
     output_type_dict = {}
@@ -1248,6 +1382,9 @@ def geojson_qc(
     output_df = output_df[final_columns_order]
     # Ensure columns are of the correct type.
     output_df = output_df.astype(output_type_dict)
+
+    # Convert z units as needed.
+    output_df = convert_output_z_units(output_df, datum_list, output_z_units)
 
     # Save the final DataFrame to GeoPackage
     datestr = init_datetime.strftime('%Y%m%dT%H')
