@@ -120,7 +120,7 @@ def main(
     
     logger.info('Adding datums...')
     # Get list of datums to add.
-    # We want all in `datums`, plus MLW and MHW to calculate range.
+    # We want all in `datums`, except BMHW, plus MLW and MHW to calculate range.
     datums_to_add = [d for d in datums if d != 'bmhw']
     for datum in list(set(datums_to_add + ['mhw', 'mlw'])):
         ds_mesh = mesh_handling.ds_add_datum(ds_mesh, datum)
@@ -130,6 +130,9 @@ def main(
     # For window calculations, we need a time series with no missing data,
     # and valid datum values, so we exclude model points that don't meet 
     # that criterium.
+    # zeta gives the water level; 
+    # mlw_minus_lmsl gives the datum values, and is guaranteed to be present
+    # because it's hardcoded above.
     ds_drop = ds_mesh.dropna('node', how='any', subset=['mlw_minus_lmsl', 'zeta'])
     ds_drop_zeta = ds_mesh.dropna('node', how='any', subset=['zeta'])
     logger.info(f'Number of nodes: full subset {len(ds_mesh.node)}; ' + 

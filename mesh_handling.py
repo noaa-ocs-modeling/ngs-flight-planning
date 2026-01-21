@@ -91,7 +91,9 @@ def load_forecast_ds(init_datetime: datetime.datetime,
     store = S3Store(
         bucket=aws_bucket,
         region="us-east-1",
-        skip_signature=True
+        skip_signature=True,
+        client_options={"timeout": "300s", "connect_timeout":"60s"},
+        retry_config={"max_attempts": 5}
     )
     registry = ObjectStoreRegistry({f"s3://{aws_bucket}": store})
     parser = HDFParser()

@@ -831,7 +831,10 @@ def csv_qc(
         column_mapping[datum.upper() + '_pass'] = datum.lower() + '_in_range'
         # Add "relative to datum" column.
         try:
-            output_df[datum.upper()] = df_images['zeta'] - df_images[datum.lower() + '_minus_lmsl']
+            if datum.lower() == 'bmhw':
+                output_df['MHW'] = df_images['zeta'] - df_images['mhw_minus_lmsl']
+            else:
+                output_df[datum.upper()] = df_images['zeta'] - df_images[datum.lower() + '_minus_lmsl']
         except KeyError:
             logger.warning(f"Warning: Expecting columns 'zeta' and '{datum.lower() + '_minus_lmsl'}' in the input DataFrame.")
             logger.warning(f"Found columns: {df_images.columns.tolist()}")
@@ -873,7 +876,10 @@ def csv_qc(
     # Ensure columns are in the correct final order
     final_columns_order = ['ImageId']
     for datum in datum_list:
-        final_columns_order.append(datum.upper())
+        if datum.lower() == 'bmhw':
+            final_columns_order.append('MHW')
+        else:
+            final_columns_order.append(datum.upper())
         final_columns_order.append(datum.upper() + '_pass')
     final_columns_order = final_columns_order + \
     [
@@ -935,7 +941,10 @@ def html_qc(
         column_mapping[datum.upper() + '_pass'] = datum.lower() + '_in_range'
         # Add "relative to datum" column.
         try:
-            output_df['Relative to ' + datum.upper()] = df_images['zeta'] - df_images[datum.lower() + '_minus_lmsl']
+            if datum.lower() == 'bmhw':
+                output_df['Relative to MHW'] = df_images['zeta'] - df_images['mhw_minus_lmsl']
+            else:
+                output_df['Relative to ' + datum.upper()] = df_images['zeta'] - df_images[datum.lower() + '_minus_lmsl']
         except KeyError:
             logger.warning(f"Warning: Expecting columns 'zeta' and '{datum.lower() + '_minus_lmsl'}' in the input DataFrame.")
             logger.warning(f"Found columns: {df_images.columns.tolist()}")
@@ -975,7 +984,10 @@ def html_qc(
     # Ensure columns are in the correct final order
     final_columns_order = ['ImageId']
     for datum in datum_list:
-        final_columns_order.append('Relative to ' + datum.upper())
+        if datum.lower() == 'bmhw':
+            final_columns_order.append('Relative to MHW')
+        else:
+            final_columns_order.append('Relative to ' + datum.upper())
     final_columns_order = final_columns_order + [
         'Tolerance', 'Roll', 'FlightLineId', 
         'FrameId/SerialNumber', 'TideStage'
@@ -986,7 +998,10 @@ def html_qc(
     # Prepare pass/fail DataFrame for styling
     pass_cols = {}
     for datum in datum_list:
-        rel_col = 'Relative to ' + datum.upper()
+        if datum.lower() == 'bmhw':
+            rel_col = 'Relative to MHW'
+        else:
+            rel_col = 'Relative to ' + datum.upper()
         pass_col = datum.lower() + '_in_range'
         if pass_col in df_images.columns:
             pass_cols[rel_col] = df_images[pass_col].values
@@ -1079,7 +1094,10 @@ def geopackage_qc(
     for datum in datum_list:
         # Add "relative to datum" column.
         try:
-            output_df[datum.upper()] = df_images['zeta'] - df_images[datum.lower() + '_minus_lmsl']
+            if datum.lower() == 'bmhw':
+                output_df['MHW'] = df_images['zeta'] - df_images['mhw_minus_lmsl']
+            else:
+                output_df[datum.upper()] = df_images['zeta'] - df_images[datum.lower() + '_minus_lmsl']
         except KeyError:
             logger.warning(f"Warning: Expecting columns 'zeta' and '{datum.lower() + '_minus_lmsl'}' in the input DataFrame.")
             logger.warning(f"Found columns: {df_images.columns.tolist()}")
@@ -1129,7 +1147,10 @@ def geopackage_qc(
     # Ensure columns are in the correct final order
     final_columns_order = ['ImageId']
     for datum in datum_list:
-        final_columns_order.append(datum.upper())
+        if datum.lower() == 'bmhw':
+            final_columns_order.append('MHW')
+        else:
+            final_columns_order.append(datum.upper())
         final_columns_order.append(datum.upper() + '_pass')
     final_columns_order = final_columns_order + \
     [
@@ -1200,7 +1221,10 @@ def shapefile_qc(
     for datum in datum_list:
         # Add "relative to datum" column.
         try:
-            output_df[datum.upper()] = df_images['zeta'] - df_images[datum.lower() + '_minus_lmsl']
+            if datum.lower() == 'bmhw':
+                output_df['MHW'] = df_images['zeta'] - df_images['mhw_minus_lmsl']
+            else:
+                output_df[datum.upper()] = df_images['zeta'] - df_images[datum.lower() + '_minus_lmsl']
         except KeyError:
             logger.warning(f"Warning: Expecting columns 'zeta' and '{datum.lower() + '_minus_lmsl'}' in the input DataFrame.")
             logger.warning(f"Found columns: {df_images.columns.tolist()}")
@@ -1254,7 +1278,10 @@ def shapefile_qc(
     # Ensure columns are in the correct final order
     final_columns_order = ['ImageId']
     for datum in datum_list:
-        final_columns_order.append(datum.upper())
+        if datum.lower() == 'bmhw':
+            final_columns_order.append('MHW')
+        else:
+            final_columns_order.append(datum.upper())
         final_columns_order.append(datum.upper() + '_pass')
     final_columns_order += [
         'Tolerance', 'Roll', 'FlightId', 'FrameId', 'TideStage',
@@ -1323,7 +1350,10 @@ def geojson_qc(
     for datum in datum_list:
         # Add "relative to datum" column.
         try:
-            output_df[datum.upper()] = df_images['zeta'] - df_images[datum.lower() + '_minus_lmsl']
+            if datum.lower() == 'bmhw':
+                output_df['MHW'] = df_images['zeta'] - df_images['mhw_minus_lmsl']
+            else:
+                output_df[datum.upper()] = df_images['zeta'] - df_images[datum.lower() + '_minus_lmsl']
         except KeyError:
             logger.warning(f"Warning: Expecting columns 'zeta' and '{datum.lower() + '_minus_lmsl'}' in the input DataFrame.")
             logger.warning(f"Found columns: {df_images.columns.tolist()}")
@@ -1372,7 +1402,10 @@ def geojson_qc(
     # Ensure columns are in the correct final order
     final_columns_order = ['ImageId']
     for datum in datum_list:
-        final_columns_order.append(datum.upper())
+        if datum.lower() == 'bmhw':
+            final_columns_order.append('MHW')
+        else:
+            final_columns_order.append(datum.upper())
         final_columns_order.append(datum.upper() + '_pass')
     final_columns_order = final_columns_order + \
     [
