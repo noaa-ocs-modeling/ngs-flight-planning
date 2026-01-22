@@ -750,13 +750,17 @@ def convert_output_z_units(
     if 'Tolerance' in df.columns:
         cols_to_convert.append('Tolerance') 
     for datum in datum_list:
+        if datum.lower() == 'bmhw':
+            search_datum = 'mhw'
+        else:
+            search_datum = datum
         # Most of the QC outputs just use the datum name for the
         # water level relative to that datum.
-        if datum.upper() in df.columns:
-            cols_to_convert.append(datum.upper())
+        if search_datum.upper() in df.columns:
+            cols_to_convert.append(search_datum.upper())
         # HTML QC uses 'Relative to <DATUM>' for the column name.
-        if 'Relative to ' + datum.upper() in df.columns:
-            cols_to_convert.append('Relative to ' + datum.upper())
+        if 'Relative to ' + search_datum.upper() in df.columns:
+            cols_to_convert.append('Relative to ' + search_datum.upper())
 
     # Apply the conversions.
     df_converted = df.copy()
