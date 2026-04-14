@@ -28,6 +28,7 @@ from coastalmodeling_vdatum import vdatum
 from obstore.store import S3Store
 from virtualizarr.parsers import HDFParser
 from virtualizarr.registry import ObjectStoreRegistry
+from utils import switch_lon_lims
 
 
 logger = logging.getLogger(__name__)
@@ -294,17 +295,52 @@ def ds_add_tidal_range(ds: xarray.Dataset,
     Returns
     -------
     A dataset that is the same as input ds, with an added field 
-    ("mean_range") representing tidal range, i.e., (MHW - MLW).
+    ("mean_range") representing tidal range, i.e., (MHW - MLW)
+    for most cases, or (MHW - MLLW) for the West Coast and Alaska.
     
     """
     ds_out = ds.copy()
-    if 'mlw_minus_lmsl' not in ds.data_vars:
-        ds_out = ds_add_datum(ds, 'mlw', incl_time_axis=incl_time_axis, 
+    # Check if we need the west coast/Alaska range (MHW - MLLW)
+    # or the default range (MHW - MLW).
+    # For now we'll just do this assuming the entire dataset is either 
+    # west coast/Alaska or not, but in the future we could make this 
+    # spatially specific if needed.
+    lons_m180_180 = switch_lon_lims(ds_out[ds_x_name].data, min_lon=-180.0)
+    lats = ds_out[ds_y_name].data
+    wcak_min_lon = -180.0
+    wcak_max_lon = -110.0
+    wcak_min_lat = 30.0
+    wcak_max_lat = 76.0
+    in_wcak = (
+        (lons_m180_180 >= wcak_min_lon) & 
+        (lons_m180_180 <= wcak_max_lon) & \
+        (lats >= wcak_min_lat) & 
+        (lats <= wcak_max_lat)
+    )
+    if numpy.all(in_wcak):
+        logger.info('Dataset is entirely in the West Coast/Alaska region. Using range (MHW - MLLW).')
+        use_wcak_range = True
+    elif numpy.all(~in_wcak):
+        logger.info('Dataset is entirely outside of the West Coast/Alaska region. Using default range (MHW - MLW).')
+        use_wcak_range = False
+    else:
+        logger.error('Dataset contains some points in the West Coast/Alaska region and some points outside of it.')
+        raise NotImplementedError('Cannot handle datasets that contain some points in the West Coast/Alaska region and some points outside of it. Please check the inputs or subset the data so that it is either entirely in or entirely out of the West Coast/Alaska region.')
+    # Make sure we have the required variables.
+    if use_wcak_range:
+        range_lower_var = 'mllw_minus_lmsl'
+        range_lower_datum = 'mllw'
+    else:
+        range_lower_var = 'mlw_minus_lmsl'
+        range_lower_datum = 'mlw'
+    if range_lower_var not in ds.data_vars:
+        ds_out = ds_add_datum(ds, range_lower_datum, incl_time_axis=incl_time_axis, 
                               ds_y_name=ds_y_name, ds_x_name=ds_x_name)
     if 'mhw_minus_lmsl' not in ds.data_vars:
         ds_out = ds_add_datum(ds_out, 'mhw', incl_time_axis=incl_time_axis, 
                               ds_y_name=ds_y_name, ds_x_name=ds_x_name)
-    ds_out['mean_range'] = ds_out['mhw_minus_lmsl'] - ds_out['mlw_minus_lmsl']
+    # Calculate the range.
+    ds_out['mean_range'] = ds_out['mhw_minus_lmsl'] - ds_out[range_lower_var]
     return ds_out
 
 

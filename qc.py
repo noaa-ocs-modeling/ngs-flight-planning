@@ -127,7 +127,6 @@ def main(
     logger.info('Finished loading forecast subset.')
     
     logger.info('Adding datums...')
-    # We want all in `datums`, plus MLW and MHW to calculate range.
     # We want all in `datums`, except BMHW, plus MLW and MHW to calculate range.
     datums_to_add = [d for d in datums if d != 'bmhw']
     for datum in list(set(datums_to_add + ['mhw', 'mlw'])):
@@ -139,9 +138,9 @@ def main(
     # and valid datum values, so we exclude model points that don't meet 
     # that criterium.
     # zeta gives the water level; 
-    # mlw_minus_lmsl gives the datum values, and is guaranteed to be present
+    # mhw_minus_lmsl gives the datum values, and is guaranteed to be present
     # because it's hardcoded above.
-    ds_drop = ds_mesh.dropna('node', how='any', subset=['mlw_minus_lmsl', 'zeta'])
+    ds_drop = ds_mesh.dropna('node', how='any', subset=['mhw_minus_lmsl', 'zeta'])
     ds_drop_zeta = ds_mesh.dropna('node', how='any', subset=['zeta'])
     logger.info(f'Number of nodes: full subset {len(ds_mesh.node)}; ' + 
                 f'NaN in zeta {len(ds_drop_zeta.node)}; ' + 
@@ -181,7 +180,7 @@ def main(
     ds_points_model_timeseries = ds_drop.sel(node=inds).isel(k=0)
     
     logger.debug('Calculating tidal range and tolerance...')
-    # Range = MHW - MLW.
+    # Range = MHW - MLW (MHW - MLLW for West Coast/Alaska).
     # Tolerance based on 2014 NGS/RSD memo.
     ds_points_model_timeseries = mesh_handling.ds_add_tidal_range(
         ds_points_model_timeseries
