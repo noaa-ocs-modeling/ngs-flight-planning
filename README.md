@@ -39,7 +39,7 @@ pip install -r dev_requirements.txt
 ```
 
 # Usage
-Eventually, the aim is to use the package for long-term (months ahead) flight planning, near-term (days ahead) flight planning, and post flight QC (preliminary and final). For now, only the near-term flight planning has been implemeted. This is run using a python command line script. The process should output the same types of files as the existing TCARI method. 
+Eventually, the aim is to use the package for long-term (months ahead) flight planning, near-term (days ahead) flight planning, and post flight QC (preliminary and final). Presently, the near-term flight planning and both QC modes have been implemeted. These are run using python command line scripts. The process should output the same types of files as the existing TCARI method. 
 
 ## Flight planning
 Run the script `predict.py`, with three required command line arguments:
