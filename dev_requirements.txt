@@ -196,3 +196,14 @@ xyzservices==2025.1.0
 yarl==1.18.3
 zarr==3.0.1
 zict==3.0.0
+
+# Testing dependencies
+pytest>=8.0.0
+pytest-cov>=4.1.0
+pytest-mock>=3.12.0
+pytest-benchmark>=4.0.0
+pytest-timeout>=2.2.0
+pytest-xdist>=3.5.0
+hypothesis>=6.100.0
+freezegun>=1.4.0
+faker>=24.0.0
